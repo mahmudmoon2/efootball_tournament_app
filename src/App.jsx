@@ -7,6 +7,7 @@ import { Avatar } from './components/ui.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Tournament from './pages/Tournament.jsx';
+import InstallBanner from './components/InstallBanner.jsx';
 
 export default function App() {
   const { user, logout } = useAuth();
@@ -75,6 +76,7 @@ export default function App() {
         </div>
       )}
       <main className="container main">
+        <InstallBanner />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />

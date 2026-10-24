@@ -210,7 +210,7 @@ textarea { resize: vertical; }
 @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 
 /* ===== home ===== */
-.hero { display: grid; grid-template-columns: 1.4fr 1fr; align-items: center; gap: 20px; padding: 18px 0 6px; }
+.hero { position: relative; display: grid; grid-template-columns: 1.4fr 1fr; align-items: center; gap: 20px; padding: 18px 0 6px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--green); background: rgba(60, 242, 154, 0.1); border: 1px solid rgba(60, 242, 154, 0.22); padding: 5px 12px; border-radius: 99px; margin-bottom: 14px; }
 .hero h1 { font-size: clamp(32px, 5.5vw, 54px); margin-bottom: 12px; }
 .grad { background: linear-gradient(90deg, var(--green), var(--cyan) 60%, var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -532,7 +532,7 @@ textarea { resize: vertical; }
   .container.main { padding: 16px 14px calc(var(--nav-h) + 40px + env(safe-area-inset-bottom)); }
   .panel { padding: 16px; border-radius: 18px; }
   .hero { grid-template-columns: 1fr; text-align: left; padding-top: 6px; }
-  .hero-art { position: absolute; right: 6px; top: 70px; height: 110px; width: 110px; opacity: 0.9; }
+  .hero-art { position: absolute; right: 6px; top: 0; height: 110px; width: 110px; opacity: 0.9; }
   .ball-3d { font-size: 64px; }
   .ball-shadow { width: 60px; height: 10px; bottom: 6px; }
   .hero-text { padding-right: 70px; }
@@ -813,3 +813,19 @@ textarea { resize: vertical; }
   [data-theme="light"] .tabs { background: rgba(255, 255, 255, 0.92); box-shadow: inset 0 1px 0 #ffffff, 0 16px 34px rgba(15, 23, 42, 0.2); }
 }
 /* The champion banner and Hall of Fame cards stay dark gold in both themes, like a trophy plaque. */
+
+/* ===== install-app banner ===== */
+.install-banner {
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; margin-bottom: 18px;
+  border-color: rgba(60, 242, 154, 0.3); animation: rise 0.3s ease;
+}
+.install-icon { width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 8px 16px -6px rgba(60, 242, 154, 0.45); }
+.install-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.install-text b { font-size: 15px; }
+.install-text small { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.install-x { width: 34px; height: 34px; flex-shrink: 0; }
+@media (max-width: 420px) {
+  .install-banner { flex-wrap: wrap; }
+  .install-text { flex-basis: calc(100% - 110px); }
+  .install-banner .btn { order: 4; flex: 1 1 100%; }
+}

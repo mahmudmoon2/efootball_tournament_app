@@ -14,6 +14,13 @@ const en = {
   confirm: 'Confirm',
   areYouSure: 'Are you sure?',
 
+  // install banner
+  'install.title': 'Install eFootball Arena',
+  'install.sub': 'Add it to your home screen and open it like an app.',
+  'install.iosSub': 'Tap the Share button, then "Add to Home Screen".',
+  'install.btn': 'Install',
+  'install.later': 'Not now',
+
   // home
   'home.eyebrow': 'Live tournament manager',
   'home.titleBefore': 'Run your ',
@@ -320,6 +327,12 @@ const bn = {
   cancel: 'বাতিল',
   confirm: 'নিশ্চিত',
   areYouSure: 'আপনি কি নিশ্চিত?',
+
+  'install.title': 'eFootball Arena অ্যাপ ইনস্টল করুন',
+  'install.sub': 'হোম স্ক্রিনে যোগ করুন, অ্যাপের মতো খুলুন।',
+  'install.iosSub': 'Share বাটনে চাপুন, তারপর "Add to Home Screen" বেছে নিন।',
+  'install.btn': 'ইনস্টল',
+  'install.later': 'এখন না',
 
   'home.eyebrow': 'লাইভ টুর্নামেন্ট ম্যানেজার',
   'home.titleBefore': '',
