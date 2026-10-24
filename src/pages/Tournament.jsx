@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
-import { FORMATS, advance, clone } from '../lib/engine.js';
+import { advance, clone } from '../lib/engine.js';
+import { usePrefs } from '../lib/prefs.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import Icon from '../components/Icon.jsx';
 import { PhotoCtx, useUI } from '../components/ui.jsx';
@@ -13,13 +14,13 @@ import Standings from '../components/Standings.jsx';
 import Fixtures from '../components/Fixtures.jsx';
 import Bracket from '../components/Bracket.jsx';
 
-const TABS = {
-  overview: { label: 'Overview', icon: 'home' },
-  players: { label: 'Players', icon: 'users' },
-  format: { label: 'Setup', icon: 'sliders' },
-  table: { label: 'Table', icon: 'table' },
-  fixtures: { label: 'Matches', icon: 'calendar' },
-  bracket: { label: 'Bracket', icon: 'bracket' },
+const TAB_ICONS = {
+  overview: 'home',
+  players: 'users',
+  format: 'sliders',
+  table: 'table',
+  fixtures: 'calendar',
+  bracket: 'bracket',
 };
 
 function tabsFor(t, isAdmin) {
@@ -37,6 +38,7 @@ export default function Tournament() {
   const nav = useNavigate();
   const { isAdmin } = useAuth();
   const { toast } = useUI();
+  const { t: tx } = usePrefs();
   const [t, setT] = useState(null);
   const tRef = useRef(null);
   const [error, setError] = useState('');
@@ -61,13 +63,13 @@ export default function Tournament() {
       id,
       (d) => {
         if (!d) {
-          if (!tRef.current) setError('Tournament not found.');
+          if (!tRef.current) setError({ key: 'err.notFound' });
           return;
         }
         const cur = tRef.current;
         if (!cur || (!running.current && d.version > cur.version)) accept(d);
       },
-      (e) => setError(e.message)
+      (e) => setError(e)
     );
   }, [id]);
 
@@ -85,7 +87,7 @@ export default function Tournament() {
         accept({ ...tRef.current, version: r.version, updatedAt: r.updatedAt });
       } while (pending.current);
     } catch (e) {
-      toast(e.message);
+      toast(e);
       try {
         accept(await api.get(id));
       } catch {
@@ -104,7 +106,7 @@ export default function Tournament() {
       flush();
       return true;
     } catch (e) {
-      toast(e.message);
+      toast(e);
       return false;
     }
   };
@@ -114,14 +116,14 @@ export default function Tournament() {
       await api.remove(t.id);
       nav('/');
     } catch (e) {
-      toast(e.message);
+      toast(e);
     }
   };
 
   if (error)
     return (
       <div className="empty panel">
-        {error} <Link to="/">Back to tournaments</Link>
+        {error.key ? tx(error.key) : error.message} <Link to="/">{tx('t.backToList')}</Link>
       </div>
     );
   if (!t)
@@ -144,15 +146,17 @@ export default function Tournament() {
     <div className="t-page">
       <div className="t-header">
         <Link to="/" className="back-link">
-          <Icon name="back" size={16} /> Tournaments
+          <Icon name="back" size={16} /> {tx('t.back')}
         </Link>
         <div className="t-title-row">
           <h1>{t.name}</h1>
           {isAdmin && (
             <span className={`save-state ${saving ? 'busy' : ''}`}>
-              {saving ? 'Saving…' : (
+              {saving ? (
+                tx('t.saving')
+              ) : (
                 <>
-                  <Icon name="check" size={14} /> Saved
+                  <Icon name="check" size={14} /> {tx('t.saved')}
                 </>
               )}
             </span>
@@ -160,7 +164,7 @@ export default function Tournament() {
         </div>
         <div className="t-meta">
           <StatusBadge status={t.status} format={t.format} />
-          {t.format && <span className="chip">{FORMATS[t.format].name}</span>}
+          {t.format && <span className="chip">{tx(`format.${t.format}.name`)}</span>}
           <span className="chip">
             <Icon name="users" size={13} /> {t.players.length}
           </span>
@@ -170,8 +174,8 @@ export default function Tournament() {
       <nav className="tabs" aria-label="Tournament sections">
         {tabs.map((k) => (
           <button key={k} className={`tab ${active === k ? 'active' : ''}`} onClick={() => go(k)}>
-            <Icon name={TABS[k].icon} size={19} />
-            <span>{TABS[k].label}</span>
+            <Icon name={TAB_ICONS[k]} size={19} />
+            <span>{tx(`tab.${k}`)}</span>
           </button>
         ))}
       </nav>

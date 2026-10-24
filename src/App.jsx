@@ -1,6 +1,7 @@
 import { Link, Route, Routes, useNavigate } from 'react-router-dom';
 import { useAuth } from './lib/auth.jsx';
 import { isDemo } from './lib/api.js';
+import { usePrefs } from './lib/prefs.jsx';
 import Icon from './components/Icon.jsx';
 import { Avatar } from './components/ui.jsx';
 import Home from './pages/Home.jsx';
@@ -9,6 +10,7 @@ import Tournament from './pages/Tournament.jsx';
 
 export default function App() {
   const { user, logout } = useAuth();
+  const { t, lang, theme, toggleLang, toggleTheme } = usePrefs();
   const nav = useNavigate();
   return (
     <>
@@ -26,17 +28,31 @@ export default function App() {
             </span>
           </Link>
           <nav className="topnav">
+            <div className="prefs">
+              <button
+                className="pref-btn"
+                onClick={toggleTheme}
+                title={t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')}
+                aria-label={t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')}
+              >
+                <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={17} />
+              </button>
+              <button className="pref-btn lang" onClick={toggleLang} title={t('lang.switch')} aria-label={t('lang.switch')}>
+                <span className={lang === 'en' ? 'on' : ''}>EN</span>
+                <span className={lang === 'bn' ? 'on' : ''}>বাং</span>
+              </button>
+            </div>
             {user ? (
               <>
                 <span className="user-chip" title={user.email}>
                   <Avatar name={user.name} size={26} />
-                  <span className="hide-xs">{user.name}</span>
+                  <span className="hide-sm">{user.name}</span>
                   {user.isAdmin && <Icon name="shield" size={14} className="admin-mark" />}
                 </span>
                 <button
                   className="icon-btn"
-                  title="Log out"
-                  aria-label="Log out"
+                  title={t('nav.logout')}
+                  aria-label={t('nav.logout')}
                   onClick={async () => {
                     await logout();
                     nav('/');
@@ -46,8 +62,8 @@ export default function App() {
                 </button>
               </>
             ) : (
-              <Link to="/login" className="btn sm">
-                <Icon name="login" size={16} /> Admin login
+              <Link to="/login" className="btn sm login-btn" aria-label={t('nav.login')}>
+                <Icon name="login" size={16} /> <span className="hide-sm">{t('nav.login')}</span>
               </Link>
             )}
           </nav>
@@ -55,7 +71,7 @@ export default function App() {
       </header>
       {isDemo && (
         <div className="demo-banner">
-          <Icon name="bolt" size={14} /> Demo mode: data stays in this browser. Log in with <b>admin / admin</b>.
+          <Icon name="bolt" size={14} /> {t('demo.banner')} <b>admin / admin</b>.
         </div>
       )}
       <main className="container main">
@@ -67,7 +83,7 @@ export default function App() {
             path="*"
             element={
               <div className="empty panel">
-                Page not found. <Link to="/">Go home</Link>
+                {t('notFound')} <Link to="/">{t('goHome')}</Link>
               </div>
             }
           />

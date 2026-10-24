@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
-import { FORMATS, newTournament } from '../lib/engine.js';
+import { newTournament } from '../lib/engine.js';
+import { usePrefs } from '../lib/prefs.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import WinnerCard from '../components/WinnerCard.jsx';
 import Icon from '../components/Icon.jsx';
@@ -10,25 +11,23 @@ import { useUI } from '../components/ui.jsx';
 
 function NotAdmin({ user }) {
   const { toast } = useUI();
+  const { t } = usePrefs();
   return (
     <div className="panel alert-panel">
       <h3>
-        <Icon name="shield" /> Your account is not an admin yet
+        <Icon name="shield" /> {t('notAdmin.title')}
       </h3>
-      <p className="small muted">
-        In the Firebase console, open <b>Firestore Database</b>, create a collection called <code>admins</code> and add a
-        document whose <b>Document ID</b> is your UID below (no fields needed). Then reload this page.
-      </p>
+      <p className="small muted">{t('notAdmin.body')}</p>
       <div className="uid-row">
         <code>{user.uid}</code>
         <button
           className="btn ghost sm"
           onClick={() => {
             navigator.clipboard?.writeText(user.uid);
-            toast('UID copied', 'ok');
+            toast(t('notAdmin.copied'), 'ok');
           }}
         >
-          <Icon name="copy" size={14} /> Copy
+          <Icon name="copy" size={14} /> {t('notAdmin.copy')}
         </button>
       </div>
     </div>
@@ -37,15 +36,15 @@ function NotAdmin({ user }) {
 
 export default function Home() {
   const { user, isAdmin } = useAuth();
+  const { t, tr } = usePrefs();
   const nav = useNavigate();
   const [list, setList] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
-
   const [slow, setSlow] = useState(false);
 
-  useEffect(() => api.subscribeList(setList, (e) => setError(e.message)), []);
+  useEffect(() => api.subscribeList(setList, (e) => setError(tr(e))), [tr]);
 
   // Firestore retries silently when the database is missing or offline, so tell the user after a while
   useEffect(() => {
@@ -59,29 +58,31 @@ export default function Home() {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      const t = newTournament(name.trim());
-      await api.save(t);
-      nav(`/t/${t.id}`);
+      const tour = newTournament(name.trim());
+      await api.save(tour);
+      nav(`/t/${tour.id}`);
     } catch (err) {
-      setError(`Could not create the tournament: ${err.message}`);
+      setError(t('home.createFailed', { msg: tr(err) }));
       setBusy(false);
     }
   };
 
-  const live = list?.filter((t) => t.status === 'group' || t.status === 'knockout').length || 0;
-  const champions = list?.filter((t) => t.status === 'finished' && t.championId) || [];
+  const live = list?.filter((x) => x.status === 'group' || x.status === 'knockout').length || 0;
+  const champions = list?.filter((x) => x.status === 'finished' && x.championId) || [];
 
   return (
     <div className="stack">
       <section className="hero">
         <div className="hero-text">
           <span className="eyebrow">
-            <Icon name="bolt" size={14} /> Live tournament manager
+            <Icon name="bolt" size={14} /> {t('home.eyebrow')}
           </span>
           <h1>
-            Run your <span className="grad">eFootball</span> tournaments like a pro
+            {t('home.titleBefore')}
+            <span className="grad">eFootball</span>
+            {t('home.titleAfter')}
           </h1>
-          <p className="muted">League, Knockout, World Cup or Champions League style. Live tables, brackets and scores.</p>
+          <p className="muted">{t('home.sub')}</p>
         </div>
         <div className="hero-art" aria-hidden="true">
           <div className="ball-3d">⚽</div>
@@ -93,40 +94,36 @@ export default function Home() {
 
       {isAdmin && (
         <form className="panel create-row" onSubmit={create}>
-          <input placeholder="New tournament name, e.g. Friday Night Cup" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder={t('home.newPlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
           <button className="btn" disabled={busy || !name.trim()}>
-            <Icon name="plus" size={16} /> {busy ? 'Creating…' : 'Create'}
+            <Icon name="plus" size={16} /> {busy ? t('home.creating') : t('home.create')}
           </button>
         </form>
       )}
 
       {error && <div className="alert error">{error}</div>}
-      {!list && !error && slow && (
-        <div className="alert error">
-          Cannot reach the database. Check your internet connection, and make sure the Firestore database has been
-          created in the Firebase console (Build → Firestore Database → Create database).
-        </div>
-      )}
+      {!list && !error && slow && <div className="alert error">{t('home.unreachable')}</div>}
 
       {champions.length > 0 && (
         <section className="stack">
           <div className="section-head">
-            <h2>🏆 Hall of Fame</h2>
-            <span className="muted small">{champions.length} finished</span>
+            <h2>🏆 {t('home.hallOfFame')}</h2>
+            <span className="muted small">{t('home.finished', { n: champions.length })}</span>
           </div>
           <div className="winners-grid">
-            {champions.map((t) => (
-              <WinnerCard key={t.id} t={t} />
+            {champions.map((x) => (
+              <WinnerCard key={x.id} t={x} />
             ))}
           </div>
         </section>
       )}
 
       <div className="section-head">
-        <h2>Tournaments</h2>
+        <h2>{t('home.tournaments')}</h2>
         {list && (
           <span className="muted small">
-            {list.length} total{live ? ` · ${live} live` : ''}
+            {t('home.total', { n: list.length })}
+            {live ? t('home.live', { n: live }) : ''}
           </span>
         )}
       </div>
@@ -141,26 +138,25 @@ export default function Home() {
       {list && list.length === 0 && (
         <div className="empty panel">
           <div className="empty-icon">🏟️</div>
-          No tournaments yet.{' '}
-          {isAdmin ? 'Create your first one above.' : !user && <Link to="/login">Log in to create one.</Link>}
+          {t('home.empty')} {isAdmin ? t('home.emptyAdmin') : !user && <Link to="/login">{t('home.emptyLogin')}</Link>}
         </div>
       )}
       <div className="grid">
-        {list?.map((t) => (
-          <Link key={t.id} to={`/t/${t.id}`} className="panel t-card tilt">
+        {list?.map((x) => (
+          <Link key={x.id} to={`/t/${x.id}`} className="panel t-card tilt">
             <div className="t-card-head">
               <span className="t-icon">
-                <Icon name={t.champion ? 'trophy' : 'bracket'} size={20} />
+                <Icon name={x.champion ? 'trophy' : 'bracket'} size={20} />
               </span>
-              <StatusBadge status={t.status} format={t.format} />
+              <StatusBadge status={x.status} format={x.format} />
             </div>
-            <h3>{t.name}</h3>
+            <h3>{x.name}</h3>
             <div className="muted small">
-              {t.format ? FORMATS[t.format]?.short : 'Style not chosen'} · {t.players} players
+              {x.format ? t(`format.${x.format}.short`) : t('home.noStyle')} · {t('home.players', { n: x.players })}
             </div>
-            {t.champion && (
+            {x.champion && (
               <div className="champ-line">
-                <Icon name="trophy" size={15} /> {t.champion}
+                <Icon name="trophy" size={15} /> {x.champion}
               </div>
             )}
           </Link>

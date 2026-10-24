@@ -1,18 +1,16 @@
-const LABELS = {
-  setup: ['Setup', 'gray'],
-  group: ['Group stage', 'blue'],
-  knockout: ['Knockout', 'orange'],
-  finished: ['Finished', 'green'],
-};
+import { usePrefs } from '../lib/prefs.jsx';
+
+const COLORS = { setup: 'gray', group: 'blue', knockout: 'orange', finished: 'green' };
 
 export default function StatusBadge({ status, format }) {
-  let [label, color] = LABELS[status] || [status, 'gray'];
-  if (status === 'group' && (format === 'league' || format === 'league_playoff')) label = 'League stage';
-  if (status === 'group' && format === 'swiss_knockout') label = 'League phase';
+  const { t } = usePrefs();
+  let key = `status.${status}`;
+  if (status === 'group' && (format === 'league' || format === 'league_playoff')) key = 'status.league';
+  if (status === 'group' && format === 'swiss_knockout') key = 'status.leaguePhase';
   return (
-    <span className={`badge ${color}`}>
+    <span className={`badge ${COLORS[status] || 'gray'}`}>
       {(status === 'group' || status === 'knockout') && <i className="live-dot" />}
-      {label}
+      {t(key)}
     </span>
   );
 }

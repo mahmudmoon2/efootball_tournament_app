@@ -1,5 +1,6 @@
 import { computeStandings, playerName, playerTeam } from '../lib/engine.js';
 import { Avatar } from './ui.jsx';
+import { groupLabel, usePrefs } from '../lib/prefs.jsx';
 
 export function qualifyCount(t) {
   if (t.format === 'groups_knockout') return t.config.advancePerGroup;
@@ -11,6 +12,7 @@ export function qualifyCount(t) {
 
 // Full table on every screen size; on narrow screens it scrolls sideways while # and Player stay pinned.
 export function StandingsTable({ t, groupId }) {
+  const { t: tx } = usePrefs();
   const rows = computeStandings(t, groupId);
   const q = qualifyCount(t);
   return (
@@ -20,15 +22,15 @@ export function StandingsTable({ t, groupId }) {
           <thead>
             <tr>
               <th className="pin pin-1">#</th>
-              <th className="pin pin-2 left">Player</th>
-              <th title="Played">P</th>
-              <th title="Won">W</th>
-              <th title="Drawn">D</th>
-              <th title="Lost">L</th>
-              <th title="Goals for - against">Goals</th>
-              <th title="Goal difference">GD</th>
-              <th title="Points">Pts</th>
-              <th className="left">Form</th>
+              <th className="pin pin-2 left">{tx('st.player')}</th>
+              <th title={tx('st.pT')}>{tx('st.p')}</th>
+              <th title={tx('st.wT')}>{tx('st.w')}</th>
+              <th title={tx('st.dT')}>{tx('st.d')}</th>
+              <th title={tx('st.lT')}>{tx('st.l')}</th>
+              <th title={tx('st.goalsT')}>{tx('st.goals')}</th>
+              <th title={tx('st.gdT')}>{tx('st.gd')}</th>
+              <th title={tx('st.ptsT')}>{tx('st.pts')}</th>
+              <th className="left">{tx('st.form')}</th>
             </tr>
           </thead>
           <tbody>
@@ -63,7 +65,7 @@ export function StandingsTable({ t, groupId }) {
                     {r.form.length === 0 && <span className="muted">–</span>}
                     {r.form.map((f, k) => (
                       <i key={k} className={`f-${f}`}>
-                        {f}
+                        {tx(`form.${f}`)}
                       </i>
                     ))}
                   </span>
@@ -73,19 +75,20 @@ export function StandingsTable({ t, groupId }) {
           </tbody>
         </table>
       </div>
-      <div className="table-hint muted tiny">← Swipe the table to see all columns →</div>
+      <div className="table-hint muted tiny">{tx('st.hint')}</div>
     </>
   );
 }
 
 export default function Standings({ t }) {
+  const { t: tx } = usePrefs();
   const q = qualifyCount(t);
   return (
     <div className="stack">
       <div className={t.groups.length > 1 ? 'groups-grid' : ''}>
         {t.groups.map((g) => (
           <div key={g.id} className="panel table-panel">
-            <h3 className="panel-title">{g.name}</h3>
+            <h3 className="panel-title">{groupLabel(tx, t, g)}</h3>
             <StandingsTable t={t} groupId={g.id} />
           </div>
         ))}
@@ -93,11 +96,11 @@ export default function Standings({ t }) {
       <div className="legend muted tiny">
         {q > 0 && (
           <span>
-            <i className="legend-dot" /> {t.format === 'league' ? 'Champion' : 'Qualifies for knockout'}
+            <i className="legend-dot" /> {t.format === 'league' ? tx('st.champion') : tx('st.qualifies')}
           </span>
         )}
-        <span>Form: most recent on the right</span>
-        <span>Tie-break: Points → Goal difference → Goals scored → Wins</span>
+        <span>{tx('st.formNote')}</span>
+        <span>{tx('st.tiebreak')}</span>
       </div>
     </div>
   );

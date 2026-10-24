@@ -42,8 +42,8 @@ export function suggestFormats(n) {
       score,
       reason:
         n <= 6
-          ? `Best for ${n} players: everyone plays everyone ${legs === 2 ? 'home and away' : 'once'}, so the table is completely fair.`
-          : `Fair, but ${rrMatches(n, legs)} matches will take a long time.`,
+          ? { key: 'sg.leagueFair', vars: { n, how: { key: legs === 2 ? 'sg.homeAway' : 'sg.once' } } }
+          : { key: 'sg.leagueLong', vars: { m: rrMatches(n, legs) } },
     });
   }
 
@@ -57,7 +57,10 @@ export function suggestFormats(n) {
       config: { legs, playoffTeams },
       matches: rrMatches(n, legs) + koMatches(playoffTeams),
       score,
-      reason: `League first, then the top ${playoffTeams} play ${playoffTeams === 2 ? 'a final' : playoffTeams === 4 ? 'semi-finals and a final' : 'from the quarter-finals'}. Fair table plus knockout drama.`,
+      reason: {
+        key: 'sg.lp',
+        vars: { n: playoffTeams, what: { key: playoffTeams === 2 ? 'sg.aFinal' : playoffTeams === 4 ? 'sg.semisFinal' : 'sg.fromQf' } },
+      },
     });
   }
 
@@ -73,8 +76,8 @@ export function suggestFormats(n) {
       matches: koMatches(n, koLegs),
       score,
       reason: isPow2(n)
-        ? `${n} players make a perfect bracket with no byes. Finishes fast.`
-        : `${byes} top seed${byes > 1 ? 's get byes' : ' gets a bye'} into round 2. Fast, but one loss and you are out.`,
+        ? { key: 'sg.koPerfect', vars: { n } }
+        : { key: byes === 1 ? 'sg.koBye1' : 'sg.koByes', vars: { b: byes } },
     });
   }
 
@@ -91,7 +94,10 @@ export function suggestFormats(n) {
       config: { groupCount, advancePerGroup: adv, legs: 1 },
       matches: groupStageMatches(n, groupCount, 1) + koMatches(q),
       score,
-      reason: `${groupCount} groups of ~${Math.round(n / groupCount)}, top ${adv} from each go to a ${q}-player knockout${isPow2(q) ? '' : ' (with some byes)'}.`,
+      reason: {
+        key: 'sg.wc',
+        vars: { g: groupCount, s: Math.round(n / groupCount), a: adv, q, byes: { key: isPow2(q) ? 'empty' : 'sg.withByes' } },
+      },
     });
   }
 
@@ -106,7 +112,7 @@ export function suggestFormats(n) {
       config: { swissRounds, swissQualifiers, koLegs: n >= 12 ? 2 : 1, finalLegs: 1 },
       matches: Math.floor(n / 2) * swissRounds + koMatches(swissQualifiers, n >= 12 ? 2 : 1),
       score,
-      reason: `Everyone plays ${swissRounds} different opponents in one big table, the top ${swissQualifiers} go to knockout.${n % 2 ? ' (Odd number: one player rests each round.)' : ''}`,
+      reason: { key: 'sg.swiss', vars: { r: swissRounds, q: swissQualifiers, odd: { key: n % 2 ? 'sg.odd' : 'empty' } } },
     });
   }
 

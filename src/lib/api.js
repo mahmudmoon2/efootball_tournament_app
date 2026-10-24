@@ -25,27 +25,29 @@ export const USERNAME_DOMAIN = 'efootball.local';
 const toEmail = (u) => (u.includes('@') ? u : `${u}@${USERNAME_DOMAIN}`).toLowerCase();
 const displayName = (email) => (email || '').replace(`@${USERNAME_DOMAIN}`, '');
 
+// Errors carry a translation key (see i18n.js); message stays English for logs.
 export class ApiError extends Error {
-  constructor(message, code) {
-    super(message);
+  constructor(key, code, message) {
+    super(message || key);
+    this.key = key;
     this.code = code;
   }
 }
-
-const CONFLICT_MSG = 'Someone else updated this tournament. Loaded the latest version.';
 
 function friendly(e) {
   if (e instanceof ApiError) return e;
   console.error('[firebase]', e);
   const code = e?.code || '';
   if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found') || code.includes('invalid-email'))
-    return new ApiError('Wrong username or password.', 'AUTH');
-  if (code.includes('operation-not-allowed'))
-    return new ApiError('Email/Password login is not enabled. Turn it on in Firebase console → Authentication → Sign-in method.', 'AUTH');
-  if (code.includes('too-many-requests')) return new ApiError('Too many attempts. Try again in a few minutes.', 'AUTH');
-  if (code.includes('permission-denied')) return new ApiError('You do not have permission to do this. Is your account an admin?', 'PERM');
-  if (code.includes('unavailable') || code.includes('network')) return new ApiError('Network problem. Check your connection.', 'NET');
-  return new ApiError(e?.message || 'Something went wrong.', code);
+    return new ApiError('err.auth', 'AUTH');
+  if (code.includes('operation-not-allowed')) return new ApiError('err.authDisabled', 'AUTH');
+  if (code.includes('too-many-requests')) return new ApiError('err.tooMany', 'AUTH');
+  if (code.includes('permission-denied')) return new ApiError('err.perm', 'PERM');
+  if (code.includes('unavailable') || code.includes('network')) return new ApiError('err.net', 'NET');
+  if (e?.key) return e;
+  const err = new ApiError('err.generic', code, e?.message);
+  if (e?.message) err.key = null; // show the raw message when we have one
+  return err;
 }
 
 function summary(t) {
@@ -95,7 +97,7 @@ const firebaseApi = {
 
   async get(id) {
     const snap = await getDoc(doc(db, 'tournaments', id));
-    if (!snap.exists()) throw new ApiError('Tournament not found', 'NOT_FOUND');
+    if (!snap.exists()) throw new ApiError('err.notFound', 'NOT_FOUND');
     return JSON.parse(snap.data().data);
   },
 
@@ -104,7 +106,7 @@ const firebaseApi = {
       return await runTransaction(db, async (tx) => {
         const ref = doc(db, 'tournaments', t.id);
         const snap = await tx.get(ref);
-        if (snap.exists() && snap.data().version !== t.version) throw new ApiError(CONFLICT_MSG, 'CONFLICT');
+        if (snap.exists() && snap.data().version !== t.version) throw new ApiError('err.conflict', 'CONFLICT');
         const saved = { ...t, version: (t.version || 0) + 1, updatedAt: new Date().toISOString() };
         const { id, ...meta } = summary(saved);
         tx.set(ref, { ...meta, data: JSON.stringify(saved) });
@@ -245,14 +247,14 @@ const demoApi = {
   },
   async get(id) {
     const t = readAll()[id];
-    if (!t) throw new ApiError('Tournament not found', 'NOT_FOUND');
+    if (!t) throw new ApiError('err.notFound', 'NOT_FOUND');
     return t;
   },
   async save(t) {
-    if (!demoUser()) throw new ApiError('Please log in.', 'AUTH');
+    if (!demoUser()) throw new ApiError('err.login', 'AUTH');
     const all = readAll();
     const cur = all[t.id];
-    if (cur && cur.version !== t.version) throw new ApiError(CONFLICT_MSG, 'CONFLICT');
+    if (cur && cur.version !== t.version) throw new ApiError('err.conflict', 'CONFLICT');
     const saved = { ...t, version: (t.version || 0) + 1, updatedAt: new Date().toISOString() };
     all[t.id] = saved;
     writeAll(all);
@@ -294,7 +296,7 @@ const demoApi = {
     writePhotos(photos);
   },
   async login(username, password) {
-    if (username.trim() !== 'admin' || password !== 'admin') throw new ApiError('Wrong username or password.', 'AUTH');
+    if (username.trim() !== 'admin' || password !== 'admin') throw new ApiError('err.auth', 'AUTH');
     localStorage.setItem(LS_AUTH, '1');
     authListeners.forEach((l) => l(demoUser()));
   },

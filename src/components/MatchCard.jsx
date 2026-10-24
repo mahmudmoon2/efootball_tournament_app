@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { isPlayed, playerName, playerTeam, tieMatches, tieResult } from '../lib/engine.js';
 import Icon from './Icon.jsx';
 import { Avatar, useUI } from './ui.jsx';
+import { usePrefs } from '../lib/prefs.jsx';
 
 const val = (v) => (v === null || v === undefined ? '' : String(v));
 const num = (v) => (v === '' ? null : Math.max(0, Math.min(99, Number(v))));
@@ -10,6 +11,7 @@ const has = (v) => v !== null && v !== undefined && v !== '';
 
 export default function MatchCard({ t, match, isAdmin, update, label }) {
   const { confirm, toast } = useUI();
+  const { t: tx } = usePrefs();
   const [hs, setHs] = useState(val(match.hs));
   const [as, setAs] = useState(val(match.as));
   const [ph, setPh] = useState(val(match.ph));
@@ -51,8 +53,8 @@ export default function MatchCard({ t, match, isAdmin, update, label }) {
   })();
 
   const save = () => {
-    if ((hs === '') !== (as === '')) return toast('Enter both scores.');
-    if (needPens && (ph === '' || pa === '' || ph === pa)) return toast('It is level: enter the penalty shootout result (it cannot be a draw).');
+    if ((hs === '') !== (as === '')) return toast(tx('mc.bothScores'));
+    if (needPens && (ph === '' || pa === '' || ph === pa)) return toast(tx('mc.needPens'));
     update((d) => {
       const m = d.matches.find((x) => x.id === match.id);
       m.hs = num(hs);
@@ -64,7 +66,7 @@ export default function MatchCard({ t, match, isAdmin, update, label }) {
   };
 
   const clear = async () => {
-    if (!(await confirm({ title: 'Clear this score?', confirmText: 'Clear', danger: true }))) return;
+    if (!(await confirm({ title: tx('mc.clearTitle'), confirmText: tx('mc.clearBtn'), danger: true }))) return;
     update((d) => {
       const m = d.matches.find((x) => x.id === match.id);
       m.hs = m.as = m.ph = m.pa = null;
@@ -104,9 +106,9 @@ export default function MatchCard({ t, match, isAdmin, update, label }) {
       <div className="m-top">
         <span className="m-label">
           {label}
-          {match.leg && legs.length > 1 ? ` · Leg ${match.leg}` : ''}
+          {match.leg && legs.length > 1 ? ` · ${tx('leg', { n: match.leg })}` : ''}
         </span>
-        <span className={`m-state ${played ? 'ft' : ''}`}>{played ? 'FT' : 'Upcoming'}</span>
+        <span className={`m-state ${played ? 'ft' : ''}`}>{played ? tx('mc.ft') : tx('mc.upcoming')}</span>
       </div>
       {row(match.home, hs, setHs, match.ph)}
       {row(match.away, as, setAs, match.pa)}
@@ -114,12 +116,12 @@ export default function MatchCard({ t, match, isAdmin, update, label }) {
         <div className="m-foot">
           {agg && (
             <span className="tiny muted">
-              Aggregate {agg.aggHome}–{agg.aggAway}
+              {tx('mc.agg', { h: agg.aggHome, a: agg.aggAway })}
             </span>
           )}
           {needPens && isAdmin && (
             <span className="pens">
-              Pens
+              {tx('mc.pens')}
               <input className="score-box sm" inputMode="numeric" aria-label="Home penalties" value={ph} onChange={(e) => setPh(digits(e.target.value))} onKeyDown={onKey} />
               <input className="score-box sm" inputMode="numeric" aria-label="Away penalties" value={pa} onChange={(e) => setPa(digits(e.target.value))} onKeyDown={onKey} />
             </span>
@@ -127,12 +129,12 @@ export default function MatchCard({ t, match, isAdmin, update, label }) {
           <span className="spacer" />
           {isAdmin && dirty && (
             <button className="btn sm" onClick={save}>
-              <Icon name="check" size={14} /> Save
+              <Icon name="check" size={14} /> {tx('save')}
             </button>
           )}
           {isAdmin && !dirty && played && (
             <button className="link-btn tiny" onClick={clear}>
-              Clear score
+              {tx('mc.clear')}
             </button>
           )}
         </div>

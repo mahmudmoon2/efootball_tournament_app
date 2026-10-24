@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { uid } from '../lib/engine.js';
 import Icon from './Icon.jsx';
 import { Avatar, useUI } from './ui.jsx';
+import { usePrefs } from '../lib/prefs.jsx';
 
 export default function Players({ t, isAdmin, update }) {
   const { confirm, toast } = useUI();
+  const { t: tx } = usePrefs();
   const [name, setName] = useState('');
   const [team, setTeam] = useState('');
   const [bulk, setBulk] = useState('');
@@ -19,7 +21,7 @@ export default function Players({ t, isAdmin, update }) {
     e.preventDefault();
     const n = name.trim();
     if (!n) return;
-    if (exists(n)) return toast(`"${n}" is already in the list.`);
+    if (exists(n)) return toast(tx('pl.dup', { name: n }));
     update((d) => {
       d.players.push({ id: uid(), name: n, team: team.trim() });
       return d;
@@ -43,13 +45,13 @@ export default function Players({ t, isAdmin, update }) {
       }
       return d;
     });
-    toast(`${added} player${added === 1 ? '' : 's'} added`, 'ok');
+    toast(tx('pl.addedN', { n: added }), 'ok');
     setBulk('');
     setShowBulk(false);
   };
 
   const del = async (p) => {
-    if (!(await confirm({ title: `Remove ${p.name}?`, confirmText: 'Remove', danger: true }))) return;
+    if (!(await confirm({ title: tx('pl.removeTitle', { name: p.name }), confirmText: tx('pl.remove'), danger: true }))) return;
     update((d) => {
       d.players = d.players.filter((x) => x.id !== p.id);
       return d;
@@ -59,7 +61,7 @@ export default function Players({ t, isAdmin, update }) {
   const saveEdit = () => {
     const n = editing.name.trim();
     if (!n) return;
-    if (exists(n, editing.id)) return toast(`"${n}" is already in the list.`);
+    if (exists(n, editing.id)) return toast(tx('pl.dup', { name: n }));
     update((d) => {
       const p = d.players.find((x) => x.id === editing.id);
       p.name = n;
@@ -74,55 +76,55 @@ export default function Players({ t, isAdmin, update }) {
       {canAddRemove && (
         <div className="panel">
           <h3 className="panel-title">
-            <Icon name="plus" /> Add players
+            <Icon name="plus" /> {tx('pl.add')}
           </h3>
           <form className="player-form" onSubmit={add}>
-            <input placeholder="Player name" value={name} onChange={(e) => setName(e.target.value)} />
-            <input placeholder="Club (optional)" value={team} onChange={(e) => setTeam(e.target.value)} />
+            <input placeholder={tx('pl.name')} value={name} onChange={(e) => setName(e.target.value)} />
+            <input placeholder={tx('pl.club')} value={team} onChange={(e) => setTeam(e.target.value)} />
             <button className="btn" disabled={!name.trim()}>
-              <Icon name="plus" size={16} /> Add
+              <Icon name="plus" size={16} /> {tx('pl.addBtn')}
             </button>
           </form>
           <button className="link-btn small" onClick={() => setShowBulk(!showBulk)}>
-            <Icon name="list" size={14} /> {showBulk ? 'Hide bulk add' : 'Add many at once'}
+            <Icon name="list" size={14} /> {showBulk ? tx('pl.bulkHide') : tx('pl.bulkShow')}
           </button>
           {showBulk && (
             <div className="bulk">
               <textarea
                 rows={6}
-                placeholder={'One player per line:\nRahim - Real Madrid\nKarim - Barcelona\nSakib'}
+                placeholder={tx('pl.bulkPh')}
                 value={bulk}
                 onChange={(e) => setBulk(e.target.value)}
               />
               <button className="btn sm" onClick={addBulk} disabled={!bulk.trim()}>
-                Add all
+                {tx('pl.addAll')}
               </button>
             </div>
           )}
         </div>
       )}
       {isAdmin && t.status !== 'setup' && (
-        <div className="alert info">The tournament has started, so players can no longer be added or removed. You can still edit names.</div>
+        <div className="alert info">{tx('pl.started')}</div>
       )}
 
       <div className="panel">
         <h3 className="panel-title">
-          <Icon name="users" /> Players <span className="count">{t.players.length}</span>
+          <Icon name="users" /> {tx('pl.title')} <span className="count">{t.players.length}</span>
         </h3>
-        {t.players.length === 0 && <div className="muted small">No players yet.</div>}
+        {t.players.length === 0 && <div className="muted small">{tx('pl.none')}</div>}
         <ul className="player-list">
           {t.players.map((p, i) => (
             <li key={p.id}>
               {editing?.id === p.id ? (
                 <div className="player-edit">
                   <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} autoFocus />
-                  <input value={editing.team} placeholder="Club" onChange={(e) => setEditing({ ...editing, team: e.target.value })} />
+                  <input value={editing.team} placeholder={tx('pl.clubShort')} onChange={(e) => setEditing({ ...editing, team: e.target.value })} />
                   <div className="row">
                     <button className="btn sm" onClick={saveEdit}>
-                      Save
+                      {tx('save')}
                     </button>
                     <button className="btn ghost sm" onClick={() => setEditing(null)}>
-                      Cancel
+                      {tx('cancel')}
                     </button>
                   </div>
                 </div>
@@ -140,13 +142,13 @@ export default function Players({ t, isAdmin, update }) {
                     <span className="p-actions">
                       <button
                         className="icon-btn"
-                        aria-label={`Edit ${p.name}`}
+                        aria-label={tx('pl.edit', { name: p.name })}
                         onClick={() => setEditing({ id: p.id, name: p.name, team: p.team || '' })}
                       >
                         <Icon name="edit" size={16} />
                       </button>
                       {canAddRemove && (
-                        <button className="icon-btn danger" aria-label={`Remove ${p.name}`} onClick={() => del(p)}>
+                        <button className="icon-btn danger" aria-label={tx('pl.removeTitle', { name: p.name })} onClick={() => del(p)}>
                           <Icon name="trash" size={16} />
                         </button>
                       )}

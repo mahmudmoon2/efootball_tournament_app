@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  FORMATS,
   backToGroupStage,
   groupStageComplete,
   isPlayed,
@@ -8,39 +7,37 @@ import {
   podium,
   progress,
   resetToSetup,
-  roundName,
   startKnockout,
 } from '../lib/engine.js';
+import { groupLabel, roundLabel, usePrefs } from '../lib/prefs.jsx';
 import { StandingsTable } from './Standings.jsx';
 import WinnerCard from './WinnerCard.jsx';
 import Icon from './Icon.jsx';
 import { useUI } from './ui.jsx';
 
-function matchLabel(t, m) {
+function matchLabel(tx, t, m) {
   if (m.stage === 'ko') {
     const legs = t.matches.filter((x) => x.tieId === m.tieId).length;
-    return `${roundName(m.round, t.bracket.rounds.length)}${legs > 1 ? ` · Leg ${m.leg}` : ''}`;
+    return `${roundLabel(tx, m.round, t.bracket.rounds.length)}${legs > 1 ? ` · ${tx('leg', { n: m.leg })}` : ''}`;
   }
-  return t.groups.length > 1 ? `Group ${m.group} · MD ${m.round}` : `${t.format === 'swiss_knockout' ? 'Round' : 'Matchday'} ${m.round}`;
+  if (t.groups.length > 1) return `${tx('group', { id: m.group })} · ${tx('mdShort', { n: m.round })}`;
+  return tx(t.format === 'swiss_knockout' ? 'roundN' : 'matchday', { n: m.round });
 }
 
 function MiniMatch({ t, m }) {
+  const { t: tx } = usePrefs();
   const played = isPlayed(m);
   const hw = played && (Number(m.hs) > Number(m.as) || (m.hs === m.as && Number(m.ph) > Number(m.pa)));
   const aw = played && (Number(m.as) > Number(m.hs) || (m.hs === m.as && Number(m.pa) > Number(m.ph)));
   return (
     <div className="mini-match">
-      <span className="tiny muted">{matchLabel(t, m)}</span>
+      <span className="tiny muted">{matchLabel(tx, t, m)}</span>
       <div className="mini-row">
         <span className={hw ? 'w' : ''}>{playerName(t, m.home)}</span>
         <b className={played ? 'done' : ''}>{played ? `${m.hs} - ${m.as}` : 'vs'}</b>
         <span className={aw ? 'w' : ''}>{playerName(t, m.away)}</span>
       </div>
-      {played && m.ph !== null && m.ph !== '' && (
-        <span className="tiny muted">
-          Penalties {m.ph}-{m.pa}
-        </span>
-      )}
+      {played && m.ph !== null && m.ph !== '' && <span className="tiny muted">{tx('ov.pens', { h: m.ph, a: m.pa })}</span>}
     </div>
   );
 }
@@ -64,6 +61,7 @@ function Ring({ pct }) {
 
 export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
   const { confirm } = useUI();
+  const { t: tx } = usePrefs();
   const [rename, setRename] = useState(null);
   const { played, total } = progress(t);
   const pod = podium(t);
@@ -77,17 +75,17 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
   const koFormat = ['league_playoff', 'groups_knockout', 'swiss_knockout'].includes(t.format);
   const stageName =
     t.status === 'finished'
-      ? 'Finished'
+      ? tx('stage.finished')
       : t.status === 'knockout'
-        ? roundName(Math.max(0, t.bracket.rounds.findIndex((r) => r.some((x) => !x.winner))), t.bracket.rounds.length)
+        ? roundLabel(tx, Math.max(0, t.bracket.rounds.findIndex((r) => r.some((x) => !x.winner))), t.bracket.rounds.length)
         : t.groups.length > 1
-        ? 'Groups'
-        : 'League';
+          ? tx('stage.groups')
+          : tx('stage.league');
 
   const doStartKo = async () => {
     if (
       !groupStageComplete(t) &&
-      !(await confirm({ title: 'Some matches are still unplayed', message: 'Start the knockout stage anyway? Current standings will be used.', confirmText: 'Start knockout' }))
+      !(await confirm({ title: tx('admin.unplayedTitle'), message: tx('admin.unplayedMsg'), confirmText: tx('admin.startKo') }))
     )
       return;
     if (update((d) => startKnockout(d))) goTab('bracket');
@@ -96,12 +94,12 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
   const admin = isAdmin && (
     <div className="panel admin-panel">
       <h3 className="panel-title">
-        <Icon name="shield" /> Admin controls
+        <Icon name="shield" /> {tx('admin.title')}
       </h3>
       <div className="admin-actions">
         {t.status === 'group' && koFormat && (
           <button className="btn" onClick={doStartKo}>
-            <Icon name="play" size={15} /> Start knockout stage
+            <Icon name="play" size={15} /> {tx('admin.startKo')}
           </button>
         )}
         {(t.status === 'knockout' || t.status === 'finished') && koFormat && (
@@ -109,14 +107,14 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
             className="btn ghost"
             onClick={async () =>
               (await confirm({
-                title: 'Back to the group stage?',
-                message: 'The knockout bracket and all knockout scores will be deleted.',
-                confirmText: 'Go back',
+                title: tx('admin.backGroupTitle'),
+                message: tx('admin.backGroupMsg'),
+                confirmText: tx('admin.goBack'),
                 danger: true,
               })) && update((d) => backToGroupStage(d))
             }
           >
-            <Icon name="undo" size={15} /> Back to group stage
+            <Icon name="undo" size={15} /> {tx('admin.backGroup')}
           </button>
         )}
         {t.status !== 'setup' && (
@@ -124,19 +122,19 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
             className="btn ghost"
             onClick={async () =>
               (await confirm({
-                title: 'Reset to setup?',
-                message: 'All fixtures and scores will be deleted. Players are kept.',
-                confirmText: 'Reset',
+                title: tx('admin.resetTitle'),
+                message: tx('admin.resetMsg'),
+                confirmText: tx('admin.resetBtn'),
                 danger: true,
               })) && update((d) => resetToSetup(d))
             }
           >
-            <Icon name="reset" size={15} /> Reset to setup
+            <Icon name="reset" size={15} /> {tx('admin.reset')}
           </button>
         )}
         {rename === null ? (
           <button className="btn ghost" onClick={() => setRename(t.name)}>
-            <Icon name="edit" size={15} /> Rename
+            <Icon name="edit" size={15} /> {tx('admin.rename')}
           </button>
         ) : (
           <form
@@ -148,21 +146,21 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
             }}
           >
             <input value={rename} onChange={(e) => setRename(e.target.value)} autoFocus />
-            <button className="btn sm">Save</button>
+            <button className="btn sm">{tx('save')}</button>
           </form>
         )}
         <button
           className="btn danger"
           onClick={async () =>
             (await confirm({
-              title: `Delete "${t.name}"?`,
-              message: 'This removes the whole tournament for everyone. It cannot be undone.',
-              confirmText: 'Delete',
+              title: tx('admin.deleteTitle', { name: t.name }),
+              message: tx('admin.deleteMsg'),
+              confirmText: tx('admin.delete'),
               danger: true,
             })) && onDelete()
           }
         >
-          <Icon name="trash" size={15} /> Delete
+          <Icon name="trash" size={15} /> {tx('admin.delete')}
         </button>
       </div>
     </div>
@@ -170,15 +168,15 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
 
   if (t.status === 'setup') {
     const steps = [
-      { done: t.players.length >= 2, text: `Add players`, sub: `${t.players.length} added`, tab: 'players' },
-      { done: !!t.format, text: 'Choose a style', sub: t.format ? FORMATS[t.format].name : 'Get a smart suggestion', tab: 'format' },
-      { done: false, text: 'Start the tournament', sub: 'Fixtures are generated automatically', tab: 'format' },
+      { done: t.players.length >= 2, text: tx('ov.addPlayers'), sub: tx('ov.added', { n: t.players.length }), tab: 'players' },
+      { done: !!t.format, text: tx('ov.chooseStyle'), sub: t.format ? tx(`format.${t.format}.name`) : tx('ov.smart'), tab: 'format' },
+      { done: false, text: tx('ov.start'), sub: tx('ov.startSub'), tab: 'format' },
     ];
     return (
       <div className="stack">
         <div className="panel">
           <h3 className="panel-title">
-            <Icon name="sliders" /> Get started
+            <Icon name="sliders" /> {tx('ov.getStarted')}
           </h3>
           {isAdmin ? (
             <div className="steps">
@@ -193,7 +191,7 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
               ))}
             </div>
           ) : (
-            <div className="muted">This tournament has not started yet. Check back soon.</div>
+            <div className="muted">{tx('ov.notStarted')}</div>
           )}
         </div>
         {admin}
@@ -226,27 +224,27 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
           <Ring pct={pct} />
           <div className="ring-label">
             <b>{pct}%</b>
-            <small>complete</small>
+            <small>{tx('ov.complete')}</small>
           </div>
         </div>
         <div className="stat-grid">
           <div className="stat">
-            <small>Matches</small>
+            <small>{tx('ov.matches')}</small>
             <b>
               {played}
               <span>/{total}</span>
             </b>
           </div>
           <div className="stat">
-            <small>Goals</small>
+            <small>{tx('ov.goals')}</small>
             <b>{goals}</b>
           </div>
           <div className="stat">
-            <small>Players</small>
+            <small>{tx('ov.players')}</small>
             <b>{t.players.length}</b>
           </div>
           <div className="stat">
-            <small>Stage</small>
+            <small>{tx('ov.stage')}</small>
             <b className="stage-txt">{stageName}</b>
           </div>
         </div>
@@ -254,32 +252,30 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
 
       {t.status === 'group' && koFormat && (
         <div className={`alert ${groupStageComplete(t) ? 'success' : 'info'}`}>
-          {groupStageComplete(t)
-            ? 'The group stage is finished. The knockout stage can start now.'
-            : 'Group stage in progress. The knockout stage starts once all matches are played.'}
+          {groupStageComplete(t) ? tx('ov.groupDone') : tx('ov.groupRunning')}
         </div>
       )}
 
       <div className="two-col">
         <div className="panel">
           <h3 className="panel-title">
-            <Icon name="calendar" /> Up next
+            <Icon name="calendar" /> {tx('ov.upNext')}
           </h3>
-          {upcoming.length === 0 && <div className="muted small">No matches waiting.</div>}
+          {upcoming.length === 0 && <div className="muted small">{tx('ov.noWaiting')}</div>}
           {upcoming.map((m) => (
             <MiniMatch key={m.id} t={t} m={m} />
           ))}
           {ready.length > 0 && (
             <button className="link-btn small" onClick={() => goTab('fixtures')}>
-              All matches →
+              {tx('ov.allMatches')}
             </button>
           )}
         </div>
         <div className="panel">
           <h3 className="panel-title">
-            <Icon name="check" /> Latest results
+            <Icon name="check" /> {tx('ov.latest')}
           </h3>
-          {recent.length === 0 && <div className="muted small">No results yet.</div>}
+          {recent.length === 0 && <div className="muted small">{tx('ov.noResults')}</div>}
           {recent.map((m) => (
             <MiniMatch key={m.id} t={t} m={m} />
           ))}
@@ -287,11 +283,11 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
       </div>
 
       {t.groups.length === 1 && (
-        <div className="panel">
+        <div className="panel table-panel">
           <h3 className="panel-title">
-            <Icon name="table" /> {t.groups[0].name}
+            <Icon name="table" /> {groupLabel(tx, t, t.groups[0])}
           </h3>
-          <StandingsTable t={t} groupId="L" compact />
+          <StandingsTable t={t} groupId="L" />
         </div>
       )}
 

@@ -1,18 +1,25 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { usePrefs } from '../lib/prefs.jsx';
 
 const UICtx = createContext(null);
 
 export function UIProvider({ children }) {
+  const { t, tr } = usePrefs();
   const [dialog, setDialog] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   const confirm = useCallback((opts) => new Promise((resolve) => setDialog({ ...opts, resolve })), []);
 
-  const toast = useCallback((msg, kind = 'error') => {
-    const id = Math.random();
-    setToasts((t) => [...t, { id, msg, kind }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3800);
-  }, []);
+  // msg may be plain text, a { key, vars } message or an error with a key
+  const toast = useCallback(
+    (msg, kind = 'error') => {
+      const id = Math.random();
+      const text = tr(msg);
+      setToasts((list) => [...list, { id, msg: text, kind }]);
+      setTimeout(() => setToasts((list) => list.filter((x) => x.id !== id)), 3800);
+    },
+    [tr]
+  );
 
   const close = (value) => {
     dialog?.resolve(value);
@@ -32,14 +39,14 @@ export function UIProvider({ children }) {
       {dialog && (
         <div className="modal-back" onClick={() => close(false)}>
           <div className="modal panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h3>{dialog.title || 'Are you sure?'}</h3>
+            <h3>{dialog.title || t('areYouSure')}</h3>
             {dialog.message && <p className="muted">{dialog.message}</p>}
             <div className="modal-actions">
               <button className="btn ghost" onClick={() => close(false)}>
-                {dialog.cancelText || 'Cancel'}
+                {dialog.cancelText || t('cancel')}
               </button>
               <button className={`btn ${dialog.danger ? 'danger' : ''}`} onClick={() => close(true)} autoFocus>
-                {dialog.confirmText || 'Confirm'}
+                {dialog.confirmText || t('confirm')}
               </button>
             </div>
           </div>

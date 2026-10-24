@@ -126,26 +126,34 @@ function groupMatches(group, rounds) {
 export const isPlayed = (m) => m.hs !== null && m.hs !== '' && m.as !== null && m.as !== '';
 
 // ---------- Validation ----------
+// Problems are returned as { key, vars } so the UI can show them in the viewer's language.
+function keyedError({ key, vars }) {
+  const e = new Error(key);
+  e.key = key;
+  e.vars = vars;
+  return e;
+}
+
 export function validateStart(t) {
   const n = t.players.length;
   const c = t.config;
-  if (!t.format) return 'Pick a tournament style first.';
-  if (n < 2) return 'You need at least 2 players.';
+  if (!t.format) return { key: 'v.needFormat' };
+  if (n < 2) return { key: 'v.min2' };
   switch (t.format) {
     case 'league_playoff':
-      if (n < 3) return 'League + Playoffs needs at least 3 players.';
-      if (c.playoffTeams > n) return `Playoff spots (${c.playoffTeams}) cannot be more than the number of players.`;
+      if (n < 3) return { key: 'v.lpMin3' };
+      if (c.playoffTeams > n) return { key: 'v.playoffTooMany', vars: { n: c.playoffTeams } };
       break;
     case 'groups_knockout':
-      if (c.groupCount < 2) return 'You need at least 2 groups.';
-      if (n < c.groupCount * 2) return `${c.groupCount} groups need at least ${c.groupCount * 2} players.`;
+      if (c.groupCount < 2) return { key: 'v.min2Groups' };
+      if (n < c.groupCount * 2) return { key: 'v.groupPlayers', vars: { g: c.groupCount, n: c.groupCount * 2 } };
       if (c.advancePerGroup < 1 || c.advancePerGroup >= Math.floor(n / c.groupCount))
-        return 'Qualifiers per group must be smaller than the group size.';
+        return { key: 'v.advance' };
       break;
     case 'swiss_knockout':
-      if (n < 4) return 'Champions League style needs at least 4 players.';
-      if (c.swissRounds < 1 || c.swissRounds > n - 1) return `League phase matches must be between 1 and ${n - 1}.`;
-      if (c.swissQualifiers < 2 || c.swissQualifiers > n) return 'Check the number of knockout qualifiers.';
+      if (n < 4) return { key: 'v.swissMin4' };
+      if (c.swissRounds < 1 || c.swissRounds > n - 1) return { key: 'v.swissRounds', vars: { n: n - 1 } };
+      if (c.swissQualifiers < 2 || c.swissQualifiers > n) return { key: 'v.swissQ' };
       break;
     default:
   }
@@ -156,7 +164,7 @@ export function validateStart(t) {
 export function startTournament(src) {
   const t = clone(src);
   const err = validateStart(t);
-  if (err) throw new Error(err);
+  if (err) throw keyedError(err);
   const c = t.config;
   const ids = c.randomDraw ? shuffle(t.players.map((p) => p.id)) : t.players.map((p) => p.id);
   t.matches = [];
@@ -342,7 +350,7 @@ export function startKnockout(src) {
       t.bracket = buildBracket(seeds);
     }
   } else {
-    throw new Error('This format has no separate knockout stage.');
+    throw keyedError({ key: 'v.noKo' });
   }
   t.status = 'knockout';
   return advance(t);
