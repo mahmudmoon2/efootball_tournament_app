@@ -22,6 +22,8 @@ const PATHS = {
   bolt: 'M13 2L4 14h7l-1 8 9-12h-7z',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+  camera: 'M3 8a2 2 0 0 1 2-2h2l2-3h6l2 3h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  medal: 'M8 3l2 6M16 3l-2 6M12 21a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 13v4',
 };
 
 export default function Icon({ name, size = 18, className = '', stroke = 2 }) {

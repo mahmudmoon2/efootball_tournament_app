@@ -129,7 +129,7 @@ export default function Players({ t, isAdmin, update }) {
               ) : (
                 <>
                   <span className="p-num">{i + 1}</span>
-                  <Avatar name={p.name} />
+                  <Avatar id={p.id} name={p.name} />
                   <span className="p-name">
                     <b>
                       {p.name} {t.championId === p.id && '🏆'}

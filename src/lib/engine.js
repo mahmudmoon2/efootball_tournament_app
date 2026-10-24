@@ -425,6 +425,54 @@ export function groupStageComplete(t) {
   return gm.length > 0 && gm.every(isPlayed);
 }
 
+// Champion, runner-up and 3rd place of a finished tournament.
+// League: top 3 of the table. Knockout: final loser is 2nd; the better semi-final loser is 3rd
+// (by group/league stage record when there was one, otherwise by semi-final goal difference, then goals).
+export function podium(t) {
+  if (!t.championId) return null;
+  let runnerUpId = null;
+  let thirdId = null;
+  if (t.bracket) {
+    const rounds = t.bracket.rounds;
+    const loser = (tie) => (tie.winner ? (tie.winner === tie.home ? tie.away : tie.home) : null);
+    runnerUpId = loser(rounds[rounds.length - 1][0]);
+    if (rounds.length >= 2) {
+      const semiLosers = rounds[rounds.length - 2]
+        .map((tie) => {
+          const id = loser(tie);
+          if (!id) return null;
+          let gf = 0;
+          let ga = 0;
+          for (const m of tieMatches(t, tie.id)) {
+            const home = m.home === id;
+            gf += Number(home ? m.hs : m.as) || 0;
+            ga += Number(home ? m.as : m.hs) || 0;
+          }
+          return { id, gd: gf - ga, gf };
+        })
+        .filter(Boolean);
+      const stage = {};
+      t.groups.forEach((g) => computeStandings(t, g.id).forEach((r) => (stage[r.id] = r)));
+      const zero = { pts: 0, gd: 0, gf: 0 };
+      semiLosers.sort((a, b) => {
+        const sa = stage[a.id] || zero;
+        const sb = stage[b.id] || zero;
+        return sb.pts - sa.pts || sb.gd - sa.gd || sb.gf - sa.gf || b.gd - a.gd || b.gf - a.gf;
+      });
+      thirdId = semiLosers[0]?.id || null;
+    }
+    // Final-only playoffs: take the best remaining player from the league table
+    if (!thirdId && t.groups.length === 1) {
+      thirdId = computeStandings(t, t.groups[0].id).find((r) => r.id !== t.championId && r.id !== runnerUpId)?.id || null;
+    }
+  } else if (t.groups.length) {
+    const table = computeStandings(t, t.groups[0].id);
+    runnerUpId = table[1]?.id || null;
+    thirdId = table[2]?.id || null;
+  }
+  return { championId: t.championId, runnerUpId, thirdId };
+}
+
 export function progress(t) {
   const ms = t.matches;
   return { played: ms.filter(isPlayed).length, total: ms.length };

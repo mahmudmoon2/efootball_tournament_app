@@ -79,6 +79,11 @@ Stop `npm run dev` and start it again so it picks up the `.env` file.
 4. **Deploy**. `vercel.json` already handles page routing.
 5. Firebase console → Authentication → **Settings → Authorized domains** → add your Vercel domain (e.g. `efootball-arena.vercel.app`).
 
+## Player photos and the Hall of Fame
+- Admins add a photo by tapping a player's picture in the **Players** tab. The image is cropped to a square and shrunk to about 30 KB in the browser.
+- When a tournament finishes, a photo card with the **champion** and **runner-up** appears automatically on the home page (Hall of Fame) and on the tournament overview.
+- Photos are stored in the `photos` collection. Remember to re-publish [`firestore.rules`](firestore.rules) after updating it.
+
 ## How data is stored
 - `tournaments/{id}`: one document per tournament, with summary fields (`name`, `status`, `format`, `players`, `champion`, `updatedAt`, `version`) and `data`, the full tournament as JSON.
 - `admins/{uid}`: the list of admin accounts.

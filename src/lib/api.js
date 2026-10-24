@@ -5,13 +5,18 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   runTransaction,
+  setDoc,
+  where,
+  writeBatch,
 } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db, firebaseEnabled } from './firebase.js';
+import { podium } from './engine.js';
 
 export const isDemo = !firebaseEnabled;
 
@@ -44,14 +49,20 @@ function friendly(e) {
 }
 
 function summary(t) {
-  const champ = t.championId ? t.players.find((p) => p.id === t.championId)?.name : null;
+  const nameOf = (id) => (id ? t.players.find((p) => p.id === id)?.name || null : null);
+  const pod = podium(t);
   return {
     id: t.id,
     name: t.name,
     status: t.status,
     format: t.format || null,
     players: t.players.length,
-    champion: champ || null,
+    champion: nameOf(pod?.championId),
+    championId: pod?.championId || null,
+    runnerUp: nameOf(pod?.runnerUpId),
+    runnerUpId: pod?.runnerUpId || null,
+    third: nameOf(pod?.thirdId),
+    thirdId: pod?.thirdId || null,
     updatedAt: t.updatedAt,
     version: t.version,
   };
@@ -65,7 +76,7 @@ const firebaseApi = {
     const q = query(tournamentsCol(), orderBy('updatedAt', 'desc'));
     return onSnapshot(
       q,
-      (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data(), data: undefined }))),
+      (snap) => cb(snap.docs.map((d) => summary(JSON.parse(d.data().data)))),
       (e) => onErr?.(friendly(e))
     );
   },
@@ -106,7 +117,49 @@ const firebaseApi = {
 
   async remove(id) {
     try {
-      await deleteDoc(doc(db, 'tournaments', id));
+      const photos = await getDocs(query(collection(db, 'photos'), where('tournamentId', '==', id)));
+      const batch = writeBatch(db);
+      photos.forEach((p) => batch.delete(p.ref));
+      batch.delete(doc(db, 'tournaments', id));
+      await batch.commit();
+    } catch (e) {
+      throw friendly(e);
+    }
+  },
+
+  // Player photos live in their own docs (photos/{tournamentId}_{playerId}) to keep tournament docs small.
+  subscribePhotos(tournamentId, cb) {
+    return onSnapshot(
+      query(collection(db, 'photos'), where('tournamentId', '==', tournamentId)),
+      (snap) => cb(Object.fromEntries(snap.docs.map((d) => [d.data().playerId, d.data().dataUrl]))),
+      () => cb({})
+    );
+  },
+
+  subscribePhoto(tournamentId, playerId, cb) {
+    return onSnapshot(
+      doc(db, 'photos', `${tournamentId}_${playerId}`),
+      (snap) => cb(snap.exists() ? snap.data().dataUrl : null),
+      () => cb(null)
+    );
+  },
+
+  async savePhoto(tournamentId, playerId, dataUrl) {
+    try {
+      await setDoc(doc(db, 'photos', `${tournamentId}_${playerId}`), {
+        tournamentId,
+        playerId,
+        dataUrl,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      throw friendly(e);
+    }
+  },
+
+  async removePhoto(tournamentId, playerId) {
+    try {
+      await deleteDoc(doc(db, 'photos', `${tournamentId}_${playerId}`));
     } catch (e) {
       throw friendly(e);
     }
@@ -155,11 +208,23 @@ const writeAll = (all) => {
   localStorage.setItem(LS_KEY, JSON.stringify(all));
   listeners.forEach((l) => l());
 };
+const LS_PHOTOS = 'eft_demo_photos';
+const readPhotos = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LS_PHOTOS) || '{}');
+  } catch {
+    return {};
+  }
+};
+const writePhotos = (photos) => {
+  localStorage.setItem(LS_PHOTOS, JSON.stringify(photos));
+  listeners.forEach((l) => l());
+};
 const demoUser = () => (localStorage.getItem(LS_AUTH) ? { uid: 'demo', email: 'admin', name: 'admin', isAdmin: true } : null);
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
-    if (e.key === LS_KEY) listeners.forEach((l) => l());
+    if (e.key === LS_KEY || e.key === LS_PHOTOS) listeners.forEach((l) => l());
     if (e.key === LS_AUTH) authListeners.forEach((l) => l(demoUser()));
   });
 }
@@ -197,6 +262,36 @@ const demoApi = {
     const all = readAll();
     delete all[id];
     writeAll(all);
+    const photos = readPhotos();
+    Object.keys(photos)
+      .filter((k) => k.startsWith(`${id}_`))
+      .forEach((k) => delete photos[k]);
+    writePhotos(photos);
+  },
+  subscribePhotos(tournamentId, cb) {
+    const emit = () => {
+      const prefix = `${tournamentId}_`;
+      cb(Object.fromEntries(Object.entries(readPhotos()).filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k.slice(prefix.length), v])));
+    };
+    listeners.add(emit);
+    later(emit);
+    return () => listeners.delete(emit);
+  },
+  subscribePhoto(tournamentId, playerId, cb) {
+    const emit = () => cb(readPhotos()[`${tournamentId}_${playerId}`] || null);
+    listeners.add(emit);
+    later(emit);
+    return () => listeners.delete(emit);
+  },
+  async savePhoto(tournamentId, playerId, dataUrl) {
+    const photos = readPhotos();
+    photos[`${tournamentId}_${playerId}`] = dataUrl;
+    writePhotos(photos);
+  },
+  async removePhoto(tournamentId, playerId) {
+    const photos = readPhotos();
+    delete photos[`${tournamentId}_${playerId}`];
+    writePhotos(photos);
   },
   async login(username, password) {
     if (username.trim() !== 'admin' || password !== 'admin') throw new ApiError('Wrong username or password.', 'AUTH');

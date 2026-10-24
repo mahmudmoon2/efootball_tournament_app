@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth.jsx';
 import { FORMATS, advance, clone } from '../lib/engine.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 import Icon from '../components/Icon.jsx';
-import { useUI } from '../components/ui.jsx';
+import { PhotoCtx, useUI } from '../components/ui.jsx';
 import Overview from '../components/Overview.jsx';
 import Players from '../components/Players.jsx';
 import FormatSetup from '../components/FormatSetup.jsx';
@@ -44,6 +44,9 @@ export default function Tournament() {
   const [tab, setTab] = useState(null);
   const running = useRef(false);
   const pending = useRef(false);
+  const [photos, setPhotos] = useState({});
+
+  useEffect(() => api.subscribePhotos(id, setPhotos), [id]);
 
   const accept = (d) => {
     tRef.current = d;
@@ -137,6 +140,7 @@ export default function Tournament() {
   };
 
   return (
+    <PhotoCtx.Provider value={photos}>
     <div className="t-page">
       <div className="t-header">
         <Link to="/" className="back-link">
@@ -181,5 +185,6 @@ export default function Tournament() {
         {active === 'bracket' && <Bracket t={t} />}
       </div>
     </div>
+    </PhotoCtx.Provider>
   );
 }

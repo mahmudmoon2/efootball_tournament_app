@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { FORMATS, newTournament } from '../lib/engine.js';
 import StatusBadge from '../components/StatusBadge.jsx';
+import WinnerCard from '../components/WinnerCard.jsx';
 import Icon from '../components/Icon.jsx';
 import { useUI } from '../components/ui.jsx';
 
@@ -68,6 +69,7 @@ export default function Home() {
   };
 
   const live = list?.filter((t) => t.status === 'group' || t.status === 'knockout').length || 0;
+  const champions = list?.filter((t) => t.status === 'finished' && t.championId) || [];
 
   return (
     <div className="stack">
@@ -104,6 +106,20 @@ export default function Home() {
           Cannot reach the database. Check your internet connection, and make sure the Firestore database has been
           created in the Firebase console (Build → Firestore Database → Create database).
         </div>
+      )}
+
+      {champions.length > 0 && (
+        <section className="stack">
+          <div className="section-head">
+            <h2>🏆 Hall of Fame</h2>
+            <span className="muted small">{champions.length} finished</span>
+          </div>
+          <div className="winners-grid">
+            {champions.map((t) => (
+              <WinnerCard key={t.id} t={t} />
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="section-head">

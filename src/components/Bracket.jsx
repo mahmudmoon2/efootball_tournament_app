@@ -15,7 +15,7 @@ function Tie({ t, tie, isFirst, isFinal }) {
     const bye = isFirst && tie.bye && !id;
     return (
       <div className={`b-row ${tie.winner && tie.winner === id ? 'win' : ''} ${tie.winner && id && tie.winner !== id ? 'lose' : ''} ${!id ? 'tbd' : ''}`}>
-        {id ? <Avatar name={playerName(t, id)} size={22} /> : <span className="avatar ghost" style={{ width: 22, height: 22 }} />}
+        {id ? <Avatar id={id} name={playerName(t, id)} size={22} /> : <span className="avatar ghost" style={{ width: 22, height: 22 }} />}
         <span className="b-name">{bye ? 'Bye' : id ? playerName(t, id) : 'TBD'}</span>
         <span className="b-scores">
           {pens !== null && <small>({pens})</small>}

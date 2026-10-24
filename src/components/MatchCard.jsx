@@ -76,7 +76,7 @@ export default function MatchCard({ t, match, isAdmin, update, label }) {
 
   const row = (id, value, setValue, pens) => (
     <div className={`m-row ${winnerId === id ? 'win' : ''} ${winnerId && winnerId !== id ? 'lose' : ''}`}>
-      <Avatar name={playerName(t, id)} size={32} />
+      <Avatar id={id} name={playerName(t, id)} size={32} />
       <div className="m-name">
         <b>{playerName(t, id)}</b>
         {playerTeam(t, id) && <small>{playerTeam(t, id)}</small>}

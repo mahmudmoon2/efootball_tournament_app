@@ -58,8 +58,14 @@ export function UIProvider({ children }) {
 
 export const useUI = () => useContext(UICtx);
 
+// Player photos of the tournament being viewed: { [playerId]: dataUrl }
+export const PhotoCtx = createContext({});
+
 const AVATAR_HUES = [152, 199, 262, 330, 28, 48, 180, 290];
-export function Avatar({ name = '?', size = 34 }) {
+export function Avatar({ name = '?', size = 34, id, src }) {
+  const photos = useContext(PhotoCtx);
+  const photo = src || (id && photos[id]);
+  if (photo) return <img className="avatar photo" src={photo} alt={name} style={{ width: size, height: size }} />;
   const initials = name
     .split(/\s+/)
     .filter(Boolean)

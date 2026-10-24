@@ -5,12 +5,14 @@ import {
   groupStageComplete,
   isPlayed,
   playerName,
+  podium,
   progress,
   resetToSetup,
   roundName,
   startKnockout,
 } from '../lib/engine.js';
 import { StandingsTable } from './Standings.jsx';
+import WinnerCard from './WinnerCard.jsx';
 import Icon from './Icon.jsx';
 import { useUI } from './ui.jsx';
 
@@ -64,6 +66,7 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
   const { confirm } = useUI();
   const [rename, setRename] = useState(null);
   const { played, total } = progress(t);
+  const pod = podium(t);
   const pct = total ? Math.round((played / total) * 100) : 0;
   const goals = t.matches.filter(isPlayed).reduce((s, m) => s + Number(m.hs) + Number(m.as), 0);
   const ready = t.matches
@@ -200,18 +203,22 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
 
   return (
     <div className="stack">
-      {t.championId && (
-        <div className="champion-banner">
-          <div className="trophy-stage">
-            <div className="trophy-3d">🏆</div>
-            <div className="trophy-base" />
-          </div>
-          <div>
-            <small>Champion</small>
-            <div className="champ-name">{playerName(t, t.championId)}</div>
-            <div className="champ-sub">{t.name}</div>
-          </div>
-        </div>
+      {pod && (
+        <WinnerCard
+          link={false}
+          t={{
+            id: t.id,
+            name: t.name,
+            format: t.format,
+            updatedAt: t.updatedAt,
+            championId: pod.championId,
+            champion: playerName(t, pod.championId),
+            runnerUpId: pod.runnerUpId,
+            runnerUp: pod.runnerUpId ? playerName(t, pod.runnerUpId) : null,
+            thirdId: pod.thirdId,
+            third: pod.thirdId ? playerName(t, pod.thirdId) : null,
+          }}
+        />
       )}
 
       <div className="panel progress-panel">

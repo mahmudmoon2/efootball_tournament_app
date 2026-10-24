@@ -9,56 +9,58 @@ export function qualifyCount(t) {
   return 0;
 }
 
-export function StandingsTable({ t, groupId, compact = false }) {
+// Full table on every screen size; on narrow screens it scrolls sideways while # and Player stay pinned.
+export function StandingsTable({ t, groupId }) {
   const rows = computeStandings(t, groupId);
   const q = qualifyCount(t);
   return (
-    <div className="table-wrap">
-      <table className="standings">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th className="left">Player</th>
-            <th>P</th>
-            <th className="hide-sm">W</th>
-            <th className="hide-sm">D</th>
-            <th className="hide-sm">L</th>
-            {!compact && <th className="hide-sm">GF</th>}
-            {!compact && <th className="hide-sm">GA</th>}
-            <th>GD</th>
-            <th>Pts</th>
-            {!compact && <th className="hide-md">Form</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={r.id} className={i < q ? 'qualify' : ''}>
-              <td>
-                <span className="pos">{i + 1}</span>
-              </td>
-              <td className="left">
-                <div className="st-player">
-                  <Avatar name={playerName(t, r.id)} size={28} />
-                  <div>
-                    <b>
-                      {playerName(t, r.id)}
-                      {t.championId === r.id && ' 🏆'}
-                    </b>
-                    {playerTeam(t, r.id) && <small className="muted">{playerTeam(t, r.id)}</small>}
+    <>
+      <div className="table-wrap">
+        <table className="standings">
+          <thead>
+            <tr>
+              <th className="pin pin-1">#</th>
+              <th className="pin pin-2 left">Player</th>
+              <th title="Played">P</th>
+              <th title="Won">W</th>
+              <th title="Drawn">D</th>
+              <th title="Lost">L</th>
+              <th title="Goals for - against">Goals</th>
+              <th title="Goal difference">GD</th>
+              <th title="Points">Pts</th>
+              <th className="left">Form</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.id} className={i < q ? 'qualify' : ''}>
+                <td className="pin pin-1">
+                  <span className="pos">{i + 1}</span>
+                </td>
+                <td className="pin pin-2 left">
+                  <div className="st-player">
+                    <Avatar id={r.id} name={playerName(t, r.id)} size={30} />
+                    <div>
+                      <b>
+                        {playerName(t, r.id)}
+                        {t.championId === r.id && ' 🏆'}
+                      </b>
+                      {playerTeam(t, r.id) && <small className="muted">{playerTeam(t, r.id)}</small>}
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td>{r.p}</td>
-              <td className="hide-sm">{r.w}</td>
-              <td className="hide-sm">{r.d}</td>
-              <td className="hide-sm">{r.l}</td>
-              {!compact && <td className="hide-sm">{r.gf}</td>}
-              {!compact && <td className="hide-sm">{r.ga}</td>}
-              <td className={r.gd > 0 ? 'pos-gd' : r.gd < 0 ? 'neg-gd' : ''}>{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
-              <td className="pts">{r.pts}</td>
-              {!compact && (
-                <td className="hide-md">
+                </td>
+                <td>{r.p}</td>
+                <td>{r.w}</td>
+                <td>{r.d}</td>
+                <td>{r.l}</td>
+                <td className="goals">
+                  {r.gf}-{r.ga}
+                </td>
+                <td className={r.gd > 0 ? 'pos-gd' : r.gd < 0 ? 'neg-gd' : ''}>{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
+                <td className="pts">{r.pts}</td>
+                <td className="left">
                   <span className="form">
+                    {r.form.length === 0 && <span className="muted">–</span>}
                     {r.form.map((f, k) => (
                       <i key={k} className={`f-${f}`}>
                         {f}
@@ -66,12 +68,13 @@ export function StandingsTable({ t, groupId, compact = false }) {
                     ))}
                   </span>
                 </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="table-hint muted tiny">← Swipe the table to see all columns →</div>
+    </>
   );
 }
 
@@ -81,9 +84,9 @@ export default function Standings({ t }) {
     <div className="stack">
       <div className={t.groups.length > 1 ? 'groups-grid' : ''}>
         {t.groups.map((g) => (
-          <div key={g.id} className="panel">
+          <div key={g.id} className="panel table-panel">
             <h3 className="panel-title">{g.name}</h3>
-            <StandingsTable t={t} groupId={g.id} compact={t.groups.length > 1} />
+            <StandingsTable t={t} groupId={g.id} />
           </div>
         ))}
       </div>
@@ -93,6 +96,7 @@ export default function Standings({ t }) {
             <i className="legend-dot" /> {t.format === 'league' ? 'Champion' : 'Qualifies for knockout'}
           </span>
         )}
+        <span>Form: most recent on the right</span>
         <span>Tie-break: Points → Goal difference → Goals scored → Wins</span>
       </div>
     </div>

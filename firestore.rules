@@ -13,6 +13,15 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Player photos (small JPEGs). Everyone can see them; only admins can add or change them.
+    match /photos/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.dataUrl is string
+        && request.resource.data.dataUrl.size() < 400000;
+      allow delete: if isAdmin();
+    }
+
     // A logged-in user may check whether they are an admin. Admins are added from the Firebase console only.
     match /admins/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
