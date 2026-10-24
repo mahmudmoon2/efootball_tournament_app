@@ -20,8 +20,20 @@
   --radius-sm: 12px;
   --panel-bg: linear-gradient(160deg, rgba(34, 44, 80, 0.72), rgba(12, 17, 36, 0.86));
   --panel-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 0 rgba(0, 0, 0, 0.45), 0 24px 48px -22px rgba(0, 0, 0, 0.95);
-  --font-display: 'Rajdhani', 'Hind Siliguri', 'Inter', system-ui, sans-serif;
+  /* English: Outfit for text, Oxanium for headings and numbers. Bangla overrides below. */
+  --font-body: 'Outfit', 'Anek Bangla', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Oxanium', 'Baloo Da 2', 'Outfit', system-ui, sans-serif;
   --nav-h: 64px;
+}
+
+:root:lang(bn) {
+  --font-body: 'Anek Bangla', 'Outfit', system-ui, sans-serif;
+  --font-display: 'Baloo Da 2', 'Anek Bangla', system-ui, sans-serif;
+}
+/* Bangla glyphs run smaller than Latin at the same size */
+:root:lang(bn) body { font-size: 16px; }
+@media (max-width: 720px) {
+  :root:lang(bn) body { font-size: 15px; }
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -30,7 +42,7 @@ html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', 'Hind Siliguri', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.45;
   min-height: 100vh;
@@ -174,7 +186,7 @@ textarea { resize: vertical; }
 .panel.slim { padding: 12px 14px; }
 .panel-title { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; font-size: 19px; }
 .panel-title .icon { color: var(--green); }
-.count { margin-left: auto; font-family: 'Inter', 'Hind Siliguri', sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); background: rgba(255, 255, 255, 0.06); padding: 3px 10px; border-radius: 99px; }
+.count { margin-left: auto; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--muted); background: rgba(255, 255, 255, 0.06); padding: 3px 10px; border-radius: 99px; }
 
 .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 99px; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
 .badge.gray { background: rgba(148, 163, 184, 0.12); color: #b6c2dd; border-color: rgba(148, 163, 184, 0.15); }
