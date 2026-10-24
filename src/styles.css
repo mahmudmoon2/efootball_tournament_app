@@ -829,3 +829,27 @@ textarea { resize: vertical; }
   .install-text { flex-basis: calc(100% - 110px); }
   .install-banner .btn { order: 4; flex: 1 1 100%; }
 }
+
+/* ===== compact, lighter standings table on phones ===== */
+.st-player b { font-weight: 600; letter-spacing: 0.005em; }
+.st-player small { font-size: 11.5px; letter-spacing: 0.01em; opacity: 0.85; }
+@media (max-width: 720px) {
+  .standings { font-size: 13px; border-spacing: 0 5px; min-width: 560px; }
+  .standings th { font-size: 10px; letter-spacing: 0.08em; padding: 2px 6px; }
+  .standings td { padding: 7px 6px; }
+  .standings td:first-child { border-radius: 10px 0 0 10px; }
+  .standings td:last-child { border-radius: 0 10px 10px 0; }
+  .standings .pin-1 { width: 36px; min-width: 36px; }
+  .standings .pin-2 { left: 36px; min-width: 132px; max-width: 150px; }
+  .standings .pos { width: 22px; height: 22px; font-size: 11.5px; border-radius: 7px; }
+  .standings .avatar { width: 24px !important; height: 24px !important; font-size: 9.5px !important; }
+  .st-player { gap: 8px; }
+  .st-player b { font-size: 13px; max-width: 96px; line-height: 1.2; }
+  .st-player small { font-size: 10.5px; max-width: 96px; line-height: 1.2; }
+  .standings .pts { font-size: 16px; }
+  .standings .goals { font-size: 12.5px; }
+  .form { gap: 4px; }
+  .form i { width: 21px; height: 21px; font-size: 10.5px; border-radius: 6px; }
+  .form i:last-child::after { bottom: -5px; height: 2px; }
+  :root:lang(bn) .standings th { font-size: 11px; letter-spacing: 0; }
+}
