@@ -307,6 +307,7 @@ const en = {
 
   // downloadable photo cards
   'card.hof': 'Hall of Fame',
+  'card.congrats': 'Congratulations',
   'card.champion': 'Champion',
   'card.runnerUp': 'Runner-up',
   'card.third': '3rd place',
@@ -622,6 +623,7 @@ const bn = {
   'br.swipe': 'সব রাউন্ড দেখতে সোয়াইপ করুন →',
 
   'card.hof': 'হল অফ ফেম',
+  'card.congrats': 'অভিনন্দন',
   'card.champion': 'চ্যাম্পিয়ন',
   'card.runnerUp': 'রানার-আপ',
   'card.third': '৩য় স্থান',
