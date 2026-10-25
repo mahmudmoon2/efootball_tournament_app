@@ -204,6 +204,7 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
       {pod && (
         <WinnerCard
           link={false}
+          tour={t}
           t={{
             id: t.id,
             name: t.name,
