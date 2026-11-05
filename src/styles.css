@@ -899,3 +899,18 @@ textarea { resize: vertical; }
   .wc-actions { gap: 8px; }
   .wc-podium-dl { flex: 1 1 100%; justify-content: center; }
 }
+
+/* ===== recent changes ===== */
+.activity-list { list-style: none; margin: 0; padding: 0; }
+.activity-item { display: flex; align-items: flex-start; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.activity-item:last-child { border-bottom: 0; }
+.activity-icon { width: 28px; height: 28px; flex-shrink: 0; display: grid; place-items: center; border-radius: 9px; color: var(--muted); background: rgba(127, 140, 170, 0.14); }
+.activity-item.score .activity-icon { color: var(--green); background: rgba(60, 242, 154, 0.13); }
+.activity-item.scoreEdit .activity-icon { color: var(--orange); background: rgba(251, 146, 60, 0.14); }
+.activity-item.scoreClear .activity-icon,
+.activity-item.playerRemoved .activity-icon { color: var(--red); background: rgba(251, 74, 107, 0.13); }
+.activity-item.champion .activity-icon { color: var(--gold); background: rgba(251, 191, 36, 0.16); }
+.activity-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.activity-text { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.activity-item.champion .activity-text { font-weight: 700; color: var(--gold); }
+.activity-body small { font-size: 12px; }

@@ -12,6 +12,7 @@ import {
 import { groupLabel, roundLabel, usePrefs } from '../lib/prefs.jsx';
 import { StandingsTable } from './Standings.jsx';
 import WinnerCard from './WinnerCard.jsx';
+import ActivityLog from './ActivityLog.jsx';
 import Icon from './Icon.jsx';
 import { useUI } from './ui.jsx';
 
@@ -194,6 +195,7 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
             <div className="muted">{tx('ov.notStarted')}</div>
           )}
         </div>
+        <ActivityLog t={t} />
         {admin}
       </div>
     );
@@ -291,6 +293,8 @@ export default function Overview({ t, isAdmin, update, onDelete, goTab }) {
           <StandingsTable t={t} groupId="L" />
         </div>
       )}
+
+      <ActivityLog t={t} />
 
       {admin}
     </div>

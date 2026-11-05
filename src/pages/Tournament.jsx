@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { advance, clone } from '../lib/engine.js';
 import { usePrefs } from '../lib/prefs.jsx';
+import { withChanges } from '../lib/activity.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 import Icon from '../components/Icon.jsx';
 import { PhotoCtx, useUI } from '../components/ui.jsx';
@@ -102,7 +103,7 @@ export default function Tournament() {
   // fn receives a deep copy and returns the next state; progression is recomputed after every change
   const update = (fn) => {
     try {
-      accept(advance(fn(clone(tRef.current))));
+      accept(withChanges(tRef.current, advance(fn(clone(tRef.current)))));
       flush();
       return true;
     } catch (e) {
