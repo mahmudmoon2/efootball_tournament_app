@@ -1,9 +1,10 @@
 // Downloadable Hall of Fame posters, drawn on a canvas (1440×1920, saved as JPG).
 // Style: deep navy background, a cream paint-splash, a huge chunky headline ("WINNER") and the
 // player's photo in a navy/cream duotone that fades into the headline and the background.
-//  - playerCard: one podium finisher (WINNER / RUNNER-UP / 3RD PLACE) with name and a stats line
-//  - podiumCard: champion, runner-up and 3rd place together under "WINNERS"
-import { isPlayed, playerName, playerTeam } from './engine.js';
+//  - playerCard: one podium finisher (WINNER / RUNNER-UP / 3RD PLACE) with name, stats and match results
+//  - podiumCard: champion, runner-up and 3rd place as clear framed photos under "WINNERS", with key results
+import { computeStandings, isPlayed, playerName, playerTeam } from './engine.js';
+import { roundLabel } from './prefs.jsx';
 
 const W = 1440;
 const H = 1920;
@@ -218,33 +219,104 @@ function drawHeadline(ctx, f, text, y, maxSize = 360) {
   ctx.fillText(fitText(ctx, text, W - 150, maxSize, 800, f.heavy, 120), W / 2, y);
 }
 
-function drawFooter(ctx, f, lang) {
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.font = `500 34px ${f.body}`;
-  spaced(ctx, 4);
-  ctx.fillText(`${location.host}  |  eFootball Arena`, W / 2, H - 78);
-  spaced(ctx, 0);
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
+
+// ---------- match results ----------
+function hasPens(m) {
+  return m.ph !== null && m.ph !== '' && m.ph !== undefined;
+}
+
+// A match seen from one player's side: goals for/against, penalties and W/D/L
+function perspective(m, id) {
+  const home = m.home === id;
+  const gf = Number(home ? m.hs : m.as);
+  const ga = Number(home ? m.as : m.hs);
+  const pens = hasPens(m) && gf === ga;
+  const pf = pens ? Number(home ? m.ph : m.pa) : null;
+  const pa = pens ? Number(home ? m.pa : m.ph) : null;
+  let res = gf > ga ? 'W' : gf < ga ? 'L' : 'D';
+  if (pens) res = pf > pa ? 'W' : 'L';
+  return { opp: home ? m.away : m.home, gf, ga, pf, pa, res };
+}
+
+function matchLabel(tx, tour, m) {
+  if (m.stage === 'ko') {
+    const legs = tour.matches.filter((x) => x.tieId === m.tieId).length;
+    return `${roundLabel(tx, m.round, tour.bracket.rounds.length)}${legs > 1 ? ` ${m.leg}` : ''}`;
+  }
+  if (tour.groups.length > 1) return `${tx('group', { id: m.group })} · ${tx('mdShort', { n: m.round })}`;
+  return tx(tour.format === 'swiss_knockout' ? 'roundN' : 'matchday', { n: m.round });
+}
+
+const matchOrder = (m) => (m.stage === 'ko' ? 1000 : 0) + m.round * 10 + (m.leg || 0);
 
 function playerStats(tour, id) {
   const st = { p: 0, w: 0, g: 0 };
   tour.matches.forEach((m) => {
     if (!isPlayed(m) || (m.home !== id && m.away !== id)) return;
-    const home = m.home === id;
-    const gf = Number(home ? m.hs : m.as);
-    const ga = Number(home ? m.as : m.hs);
+    const r = perspective(m, id);
     st.p++;
-    st.g += gf;
-    if (gf > ga) st.w++;
-    else if (gf === ga && m.ph !== null && m.ph !== '' && m.ph !== undefined) {
-      const pf = Number(home ? m.ph : m.pa);
-      const pa = Number(home ? m.pa : m.ph);
-      if (pf > pa) st.w++;
-    }
+    st.g += r.gf;
+    if (r.res === 'W') st.w++;
   });
   return st;
+}
+
+const RESULT_COLORS = { W: '#16a34a', D: '#64748b', L: '#dc2626' };
+
+// Semi-transparent navy panel with a cream title
+function drawPanel(ctx, f, x, y, w, h, title, color) {
+  ctx.fillStyle = 'rgba(8,9,40,0.82)';
+  rr(ctx, x, y, w, h, 26);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = color;
+  ctx.font = `700 30px ${f.heavy}`;
+  spaced(ctx, 3);
+  ctx.fillText(title, x + w / 2, y + 40);
+  spaced(ctx, 0);
+}
+
+// One result row: [label]  opponent/players  score  [W/D/L]
+function drawResultRow(ctx, f, tx, x, y, w, label, text, score, res) {
+  const mid = y + 23;
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  rr(ctx, x, y, w, 46, 12);
+  ctx.fill();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(252,211,141,0.85)';
+  const labelW = Math.min(230, w * 0.33);
+  ctx.fillText(fitText(ctx, label, labelW, 22, 500, f.body, 14), x + 16, mid);
+  ctx.fillStyle = '#ffffff';
+  const chipW = res ? 46 : 0;
+  ctx.fillText(fitText(ctx, text, w - labelW - 150 - chipW, 25, 600, f.body, 15), x + 26 + labelW, mid);
+  ctx.textAlign = 'right';
+  ctx.font = `800 26px ${f.heavy}`;
+  ctx.fillText(score, x + w - 14 - chipW - (res ? 10 : 0), mid + 1);
+  if (res) {
+    ctx.fillStyle = RESULT_COLORS[res];
+    rr(ctx, x + w - 14 - chipW, mid - 16, chipW, 32, 8);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.font = `800 18px ${f.heavy}`;
+    ctx.fillText(tx(`form.${res}`), x + w - 14 - chipW / 2, mid + 1);
+  }
 }
 
 // ---------- single poster ----------
@@ -260,44 +332,139 @@ export async function playerCard({ tour, playerId, place, photo, tx, lang }) {
   const club = playerTeam(tour, playerId);
 
   drawBackground(ctx);
-  drawSplash(ctx, rand, 150, 560, W - 300, 1020, p.css);
+  drawSplash(ctx, rand, 150, 540, W - 300, 840, p.css);
   drawTagline(ctx, f, tour, lang);
   const head = tx(p.headline);
   // Bangla letters are much taller, so the Bangla headline is smaller and sits lower
   drawHeadline(ctx, f, lang === 'bn' ? head : head.toUpperCase(), lang === 'bn' ? 400 : 345, lang === 'bn' ? 230 : 360);
 
   // the photo overlaps the lower half of the headline and fades into it
-  const size = 1240;
-  const photo2 = duotonePhoto(img, size, p.light, { fadeTop: 0.22, fadeBottom: 0.24 });
-  ctx.drawImage(photo2, (W - size) / 2, 300);
+  const size = 1080;
+  const photo2 = duotonePhoto(img, size, p.light, { fadeTop: 0.22, fadeBottom: 0.22 });
+  ctx.drawImage(photo2, (W - size) / 2, 320);
 
   // name, club and a short stats line
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowColor = 'rgba(0,0,0,0.65)';
   ctx.shadowBlur = 30;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(fitText(ctx, name, W - 220, 132, 800, f.heavy, 56), W / 2, 1600);
+  ctx.fillText(fitText(ctx, name, W - 220, 120, 800, f.heavy, 56), W / 2, 1360);
   ctx.restore();
-  let y = 1690;
+  let y = 1436;
   if (club) {
     ctx.fillStyle = p.css;
     spaced(ctx, lang === 'bn' ? 0 : 6);
-    ctx.fillText(fitText(ctx, lang === 'bn' ? club : club.toUpperCase(), W - 300, 38, 600, f.body, 20), W / 2, y);
+    ctx.fillText(fitText(ctx, lang === 'bn' ? club : club.toUpperCase(), W - 300, 34, 600, f.body, 20), W / 2, y);
     spaced(ctx, 0);
-    y += 64;
+    y += 50;
   }
   const st = playerStats(tour, playerId);
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = `500 32px ${f.body}`;
+  ctx.font = `500 30px ${f.body}`;
   ctx.fillText(tx('card.statsLine', { p: st.p, w: st.w, g: st.g }), W / 2, y);
 
-  drawFooter(ctx, f, lang);
+  // match results: two columns when there are many
+  const ms = tour.matches.filter((m) => isPlayed(m) && (m.home === playerId || m.away === playerId)).sort((a, b) => matchOrder(a) - matchOrder(b));
+  // match results, in one or two columns; the panel is sized to its rows
+  const area = y + 44;
+  const rowH = 54;
+  const maxRows = Math.floor((H - 50 - 16 - (area + 74)) / rowH);
+  const cols = ms.length > maxRows ? 2 : 1;
+  let rows = ms;
+  if (ms.length > maxRows * cols) {
+    const limit = maxRows * cols - 1; // one line for "+N more"
+    const ko = ms.filter((m) => m.stage === 'ko').slice(-limit);
+    const room = limit - ko.length;
+    rows = [...(room > 0 ? ms.filter((m) => m.stage !== 'ko').slice(-room) : []), ...ko];
+  }
+  const perCol = cols === 2 ? Math.ceil(rows.length / 2) : rows.length;
+  const hidden = ms.length - rows.length;
+  const panelH = 74 + Math.max(1, perCol + (hidden ? 1 : 0)) * rowH + 16;
+  const top = area + Math.max(0, (H - 50 - area - panelH) / 2); // centred in the space left
+  const title = tx(place === 1 ? 'card.road' : 'card.history');
+  drawPanel(ctx, f, 90, top, W - 180, panelH, lang === 'bn' ? title : title.toUpperCase(), p.css);
+  const startY = top + 74;
+  const colW = cols === 2 ? (W - 180 - 60) / 2 : W - 300;
+  const colX = cols === 2 ? [110, 110 + colW + 20] : [150];
+  rows.forEach((m, i) => {
+    const r = perspective(m, playerId);
+    const c = cols === 2 ? Math.floor(i / perCol) : 0;
+    const score = `${r.gf}-${r.ga}${r.pf !== null ? ` (${r.pf}-${r.pa})` : ''}`;
+    drawResultRow(ctx, f, tx, colX[c], startY + (i % perCol) * rowH, colW, matchLabel(tx, tour, m), `${tx('card.vs')} ${playerName(tour, r.opp)}`, score, r.res);
+  });
+  if (hidden > 0) {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = `500 22px ${f.body}`;
+    ctx.fillText(tx('card.more', { n: hidden }), W / 2, startY + perCol * rowH + 20);
+  }
   return canvas;
 }
 
-// ---------- podium poster ----------
+// ---------- podium poster: clear photos in frames + key results ----------
+function drawPhotoFrame(ctx, f, img, name, x, y, w, h, place) {
+  const p = PLACES[place];
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 40;
+  ctx.shadowOffsetY = 18;
+  ctx.fillStyle = p.css;
+  rr(ctx, x - 10, y - 10, w + 20, h + 20, 34);
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  rr(ctx, x, y, w, h, 26);
+  ctx.clip();
+  if (img) {
+    const fr = w / h;
+    let sw = img.naturalWidth;
+    let sh = img.naturalHeight;
+    if (sw / sh > fr) sw = sh * fr;
+    else sh = sw / fr;
+    ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) * 0.3, sw, sh, x, y, w, h);
+  } else {
+    const g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, '#2a2c7a');
+    g.addColorStop(1, NAVY_CSS);
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = p.css;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `800 ${Math.round(w * 0.38)}px ${f.heavy}`;
+    const ini = (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('');
+    ctx.fillText(ini, x + w / 2, y + h / 2 + 8);
+  }
+  ctx.restore();
+}
+
+// Knockout matches from the final backwards, topped up with the podium players' group games
+function keyResults(tx, tour, pod, max) {
+  if (tour.bracket) {
+    const ko = tour.matches.filter((m) => m.stage === 'ko' && isPlayed(m)).sort((a, b) => matchOrder(b) - matchOrder(a));
+    const ids = [pod.championId, pod.runnerUpId, pod.thirdId].filter(Boolean);
+    const group = tour.matches
+      .filter((m) => m.stage !== 'ko' && isPlayed(m) && (ids.includes(m.home) || ids.includes(m.away)))
+      .sort((a, b) => matchOrder(b) - matchOrder(a));
+    return [...ko, ...group].slice(0, max).map((m) => ({
+      label: matchLabel(tx, tour, m),
+      text: `${playerName(tour, m.home)}  ${tx('card.vs')}  ${playerName(tour, m.away)}`,
+      score: `${m.hs}-${m.as}${hasPens(m) ? ` (${m.ph}-${m.pa})` : ''}`,
+    }));
+  }
+  // league formats: the final table's top rows
+  const g = tour.groups[0];
+  return computeStandings(tour, g.id)
+    .slice(0, max)
+    .map((r, i) => ({
+      label: `#${i + 1}`,
+      text: `${playerName(tour, r.id)}  ·  ${r.w}-${r.d}-${r.l}`,
+      score: tx('card.pts', { n: r.pts }),
+    }));
+}
+
 export async function podiumCard({ tour, pod, photos, tx, lang }) {
   await ensureFonts();
   const f = fontsFor(lang);
@@ -306,70 +473,67 @@ export async function podiumCard({ tour, pod, photos, tx, lang }) {
   const rand = rng(`${tour.id}-podium-poster`);
 
   drawBackground(ctx);
-  drawSplash(ctx, rand, 110, 560, W - 220, 980, PLACES[1].css);
+  drawSplash(ctx, rand, 120, 560, W - 240, 660, PLACES[1].css);
   drawTagline(ctx, f, tour, lang);
   const head = tx('card.winners');
-  // Bangla letters are much taller, so the Bangla headline is smaller and sits lower
   drawHeadline(ctx, f, lang === 'bn' ? head : head.toUpperCase(), lang === 'bn' ? 400 : 345, lang === 'bn' ? 230 : 360);
 
   const slots = [
-    { place: 2, id: pod.runnerUpId, cx: 330, top: 620, size: 700 },
-    { place: 3, id: pod.thirdId, cx: W - 330, top: 650, size: 680 },
-    { place: 1, id: pod.championId, cx: W / 2, top: 400, size: 960 },
+    { place: 2, id: pod.runnerUpId, x: 64, y: 680, w: 400, h: 500 },
+    { place: 3, id: pod.thirdId, x: W - 64 - 400, y: 720, w: 400, h: 500 },
+    { place: 1, id: pod.championId, x: (W - 560) / 2, y: 560, w: 560, h: 680 },
   ].filter((s) => s.id);
   const imgs = await Promise.all(slots.map((s) => loadImage(photos[s.id])));
+  slots.forEach((s, i) => drawPhotoFrame(ctx, f, imgs[i], playerName(tour, s.id), s.x, s.y, s.w, s.h, s.place));
 
-  // side players first, champion in front
-  slots.forEach((s, i) => {
-    const pic = duotonePhoto(imgs[i], s.size, PLACES[s.place].light, {
-      fadeTop: s.place === 1 ? 0.3 : 0.22,
-      fadeBottom: 0.24,
-      fadeSides: s.place === 1 ? 0.12 : 0.2,
-    });
-    ctx.drawImage(pic, s.cx - s.size / 2, s.top);
-  });
-
-  // name plates: place tag + name under each photo
-  const labelY = { 1: 1440, 2: 1390, 3: 1400 };
-  [...slots].sort((a, b) => a.place - b.place).forEach((s) => {
+  // place tag on top of each frame, name below
+  slots.forEach((s) => {
     const p = PLACES[s.place];
-    const y = labelY[s.place];
-    const x = s.place === 1 ? W / 2 : s.cx;
+    const cx = s.x + s.w / 2;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // place tag
-    ctx.font = `800 ${s.place === 1 ? 46 : 38}px ${f.heavy}`;
+    ctx.font = `800 ${s.place === 1 ? 44 : 36}px ${f.heavy}`;
     const tag = tx(p.short);
-    const tw = ctx.measureText(tag).width + 44;
-    const th = s.place === 1 ? 64 : 54;
+    const tw = ctx.measureText(tag).width + 48;
+    const th = s.place === 1 ? 62 : 52;
+    const ty = s.y - 4;
     ctx.fillStyle = NAVY_CSS;
     ctx.beginPath();
-    ctx.moveTo(x - tw / 2 + 14, y - th / 2);
-    ctx.lineTo(x + tw / 2, y - th / 2);
-    ctx.lineTo(x + tw / 2 - 14, y + th / 2);
-    ctx.lineTo(x - tw / 2, y + th / 2);
+    ctx.moveTo(cx - tw / 2 + 14, ty - th / 2);
+    ctx.lineTo(cx + tw / 2, ty - th / 2);
+    ctx.lineTo(cx + tw / 2 - 14, ty + th / 2);
+    ctx.lineTo(cx - tw / 2, ty + th / 2);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = p.css;
+    ctx.lineWidth = 3;
+    ctx.stroke();
     ctx.fillStyle = p.css;
-    ctx.fillText(tag, x, y + 3);
-    // name
+    ctx.fillText(tag, cx, ty + 3);
+
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.65)';
-    ctx.shadowBlur = 24;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 20;
     ctx.fillStyle = '#ffffff';
-    const nameMax = s.place === 1 ? 620 : 420;
-    ctx.fillText(fitText(ctx, playerName(tour, s.id), nameMax, s.place === 1 ? 96 : 64, 800, f.heavy, 30), x, y + (s.place === 1 ? 92 : 76));
+    ctx.fillText(fitText(ctx, playerName(tour, s.id), s.w + 30, s.place === 1 ? 72 : 54, 800, f.heavy, 28), cx, s.y + s.h + (s.place === 1 ? 62 : 54));
     ctx.restore();
+    const club = playerTeam(tour, s.id);
+    if (club) {
+      ctx.fillStyle = p.css;
+      ctx.font = `600 26px ${f.body}`;
+      ctx.fillText(fitText(ctx, club, s.w, 26, 600, f.body, 16), cx, s.y + s.h + (s.place === 1 ? 116 : 100));
+    }
   });
 
-  // tournament details line
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = `500 32px ${f.body}`;
-  const sub = [tour.format ? tx(`format.${tour.format}.name`) : '', tx('card.playersCount', { n: tour.players.length })].filter(Boolean).join('  ·  ');
-  ctx.fillText(sub, W / 2, 1700);
-
-  drawFooter(ctx, f, lang);
+  // key results
+  // the panel is sized to its rows and sits at the bottom
+  const rowH = 56;
+  const results = keyResults(tx, tour, pod, 6);
+  const bottom = H - 50;
+  const top = Math.max(1400, bottom - (80 + results.length * rowH + 14));
+  const title = tx(tour.bracket ? 'card.keyResults' : 'card.finalTable');
+  drawPanel(ctx, f, 90, top, W - 180, bottom - top, lang === 'bn' ? title : title.toUpperCase(), PLACES[1].css);
+  results.forEach((r, i) => drawResultRow(ctx, f, tx, 120, top + 76 + i * rowH, W - 240, r.label, r.text, r.score, null));
   return canvas;
 }
 
