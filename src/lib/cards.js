@@ -1,51 +1,30 @@
-// Downloadable Hall of Fame photo cards, drawn on a canvas (1440×1800, saved as JPG).
-//  - playerCard: one podium finisher, big portrait photo, stats and match history
-//  - podiumCard: champion, runner-up and 3rd place together on a 3D podium
-// Both use a celebration look: "Congratulations" headline, spotlights, confetti and sparkles.
+// Downloadable Hall of Fame posters, drawn on a canvas (1440×1920, saved as JPG).
+// Style: deep navy background, a cream paint-splash, a huge chunky headline ("WINNER") and the
+// player's photo in a navy/cream duotone that fades into the headline and the background.
+//  - playerCard: one podium finisher (WINNER / RUNNER-UP / 3RD PLACE) with name and a stats line
+//  - podiumCard: champion, runner-up and 3rd place together under "WINNERS"
 import { isPlayed, playerName, playerTeam } from './engine.js';
-import { roundLabel } from './prefs.jsx';
 
 const W = 1440;
-const H = 1800;
+const H = 1920;
+const NAVY = [14, 15, 58];
+const NAVY_CSS = '#0e0f3a';
 
+// light colour of the duotone and the splash, per finishing place
 const PLACES = {
-  1: {
-    key: 'card.champion',
-    metal: ['#fff6cc', '#f5b81c', '#fde68a', '#b7791f', '#fff1b8'],
-    text: '#fcd34d',
-    deep: '#7a4b06',
-    medal: '🏆',
-    block: ['#fde68a', '#e09a12', '#8a5a0a'],
-  },
-  2: {
-    key: 'card.runnerUp',
-    metal: ['#ffffff', '#a7b4c8', '#eef2f7', '#5b6b82', '#f8fafc'],
-    text: '#e2e8f0',
-    deep: '#334155',
-    medal: '🥈',
-    block: ['#f1f5f9', '#9aa8bd', '#4b5a70'],
-  },
-  3: {
-    key: 'card.third',
-    metal: ['#ffe4c7', '#cf7a35', '#f6c08f', '#7c3f12', '#ffe0bd'],
-    text: '#f6c08f',
-    deep: '#5a2a0b',
-    medal: '🥉',
-    block: ['#fbd5b0', '#c2702e', '#6b3410'],
-  },
+  1: { headline: 'card.wWinner', short: 'card.p1', light: [252, 211, 141], css: '#fcd38d' },
+  2: { headline: 'card.wRunner', short: 'card.p2', light: [222, 228, 238], css: '#dee4ee' },
+  3: { headline: 'card.wThird', short: 'card.p3', light: [246, 187, 138], css: '#f6bb8a' },
 };
-
-const CONFETTI = ['#fbbf24', '#fde68a', '#3cf29a', '#38bdf8', '#f472b6', '#ffffff', '#a78bfa', '#fb7185', '#facc15'];
-const AVATAR_HUES = [152, 199, 262, 330, 28, 48, 180, 290];
 
 function fontsFor(lang) {
   return lang === 'bn'
-    ? { display: '"Baloo Da 2", "Oxanium", sans-serif', body: '"Anek Bangla", "Outfit", sans-serif' }
-    : { display: '"Oxanium", "Baloo Da 2", sans-serif', body: '"Outfit", "Anek Bangla", sans-serif' };
+    ? { heavy: '"Baloo Da 2", sans-serif', body: '"Anek Bangla", "Outfit", sans-serif' }
+    : { heavy: '"Baloo Da 2", "Outfit", sans-serif', body: '"Outfit", "Anek Bangla", sans-serif' };
 }
 
 async function ensureFonts() {
-  const specs = ['700 40px Oxanium', '600 40px Oxanium', '400 40px Outfit', '600 40px Outfit', '700 40px Outfit', '700 40px "Baloo Da 2"', '800 40px "Baloo Da 2"', '400 40px "Anek Bangla"', '600 40px "Anek Bangla"'];
+  const specs = ['800 40px "Baloo Da 2"', '700 40px "Baloo Da 2"', '400 40px Outfit', '500 40px Outfit', '600 40px Outfit', '700 40px Outfit', '500 40px "Anek Bangla"', '600 40px "Anek Bangla"'];
   await Promise.all(specs.map((s) => document.fonts.load(s).catch(() => null)));
 }
 
@@ -59,7 +38,7 @@ function loadImage(src) {
   });
 }
 
-// Small seeded random so a tournament always gets the same confetti
+// Small seeded random so a poster always comes out the same
 function rng(seed) {
   let s = 0;
   for (const c of String(seed)) s = (s * 31 + c.charCodeAt(0)) >>> 0;
@@ -67,16 +46,6 @@ function rng(seed) {
     s = (s * 1664525 + 1013904223) >>> 0;
     return s / 4294967296;
   };
-}
-
-function rr(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
 }
 
 function fitText(ctx, text, maxW, size, weight, family, min = 22) {
@@ -91,613 +60,316 @@ function fitText(ctx, text, maxW, size, weight, family, min = 22) {
   return out;
 }
 
-function metalGradient(ctx, x, y, w, h, stops) {
-  const g = ctx.createLinearGradient(x, y, x + w, y + h);
-  stops.forEach((c, i) => g.addColorStop(i / (stops.length - 1), c));
-  return g;
+function spaced(ctx, px) {
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${px}px`;
 }
 
-function sparkle(ctx, x, y, size, color = '#fff7d6') {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = size * 1.6;
-  ctx.beginPath();
-  ctx.moveTo(0, -size);
-  ctx.quadraticCurveTo(size * 0.12, -size * 0.12, size, 0);
-  ctx.quadraticCurveTo(size * 0.12, size * 0.12, 0, size);
-  ctx.quadraticCurveTo(-size * 0.12, size * 0.12, -size, 0);
-  ctx.quadraticCurveTo(-size * 0.12, -size * 0.12, 0, -size);
-  ctx.fill();
-  ctx.restore();
-}
-
-// ---------- shared scenery ----------
-function drawStage(ctx, rand, accent) {
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#1a0f3d');
-  bg.addColorStop(0.45, '#0f0b2a');
-  bg.addColorStop(1, '#05040f');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
-
-  // coloured haze
-  const haze = [
-    [220, 300, 700, 'rgba(168,85,247,0.28)'],
-    [1240, 420, 700, 'rgba(56,189,248,0.20)'],
-    [W / 2, 900, 900, accent],
-  ];
-  haze.forEach(([x, y, r, c]) => {
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, c);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-  });
-
-  // spotlights from the top
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  [
-    [W * 0.18, -40, W * 0.42, 1500, 0.1],
-    [W * 0.82, -40, W * 0.58, 1500, 0.1],
-    [W * 0.5, -60, W * 0.5, 1400, 0.08],
-  ].forEach(([x1, y1, x2, y2, a]) => {
-    const g = ctx.createLinearGradient(x1, y1, x2, y2);
-    g.addColorStop(0, `rgba(255,248,220,${a * 2.4})`);
-    g.addColorStop(1, 'rgba(255,248,220,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(x1 - 40, y1);
-    ctx.lineTo(x1 + 40, y1);
-    ctx.lineTo(x2 + 330, y2);
-    ctx.lineTo(x2 - 330, y2);
-    ctx.closePath();
-    ctx.fill();
-  });
-  ctx.restore();
-
-  // bokeh
-  for (let i = 0; i < 26; i++) {
-    const x = rand() * W;
-    const y = rand() * H * 0.9;
-    const r = 10 + rand() * 46;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    const c = CONFETTI[Math.floor(rand() * CONFETTI.length)];
-    g.addColorStop(0, `${c}55`);
-    g.addColorStop(1, `${c}00`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function insideAny(x, y, rects, pad = 0) {
-  return rects.some(([rx, ry, rw, rh]) => x > rx - pad && x < rx + rw + pad && y > ry - pad && y < ry + rh + pad);
-}
-
-function drawConfetti(ctx, rand, count, avoid = [], yMax = H) {
-  for (let i = 0; i < count; i++) {
-    const x = rand() * W;
-    const y = rand() * yMax;
-    if (insideAny(x, y, avoid, 10)) continue;
-    const c = CONFETTI[Math.floor(rand() * CONFETTI.length)];
-    const kind = rand();
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rand() * Math.PI * 2);
-    ctx.fillStyle = c;
-    ctx.strokeStyle = c;
-    ctx.globalAlpha = 0.65 + rand() * 0.35;
-    if (kind < 0.5) {
-      const w = 12 + rand() * 16;
-      ctx.fillRect(-w / 2, -4, w, 8 + rand() * 6);
-    } else if (kind < 0.75) {
-      ctx.beginPath();
-      ctx.arc(0, 0, 4 + rand() * 6, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(-20, 0);
-      ctx.bezierCurveTo(-8, -16, 8, 16, 20, 0);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-}
-
-function drawFrame(ctx) {
-  const g = metalGradient(ctx, 0, 0, W, H, ['#fde68a', '#b45309', '#fff1b8', '#b45309', '#fde68a']);
-  ctx.strokeStyle = g;
-  ctx.lineWidth = 8;
-  rr(ctx, 26, 26, W - 52, H - 52, 46);
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(253,230,138,0.25)';
-  ctx.lineWidth = 2;
-  rr(ctx, 46, 46, W - 92, H - 92, 34);
-  ctx.stroke();
-}
-
-// Big gold "CONGRATULATIONS" + tournament ribbon
-function drawHeadline(ctx, f, tx, tour, lang, dateStr, top = 110) {
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const word = tx('card.congrats');
-  const text = lang === 'bn' ? word : word.toUpperCase();
-  const size = lang === 'bn' ? 120 : 104;
-  ctx.font = `800 ${size}px ${f.display}`;
-  const fitted = fitText(ctx, text, W - 200, size, 800, f.display, 60);
-  const tw = ctx.measureText(fitted).width;
-  ctx.save();
-  ctx.shadowColor = 'rgba(251,191,36,0.75)';
-  ctx.shadowBlur = 40;
-  ctx.fillStyle = metalGradient(ctx, W / 2 - tw / 2, top - 50, tw, 100, ['#fff6cc', '#fbbf24', '#fff1b8', '#d97706']);
-  ctx.fillText(fitted, W / 2, top);
-  ctx.restore();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(122,75,6,0.6)';
-  ctx.strokeText(fitted, W / 2, top);
-  sparkle(ctx, W / 2 - tw / 2 - 46, top - 30, 22);
-  sparkle(ctx, W / 2 + tw / 2 + 40, top + 18, 16);
-  sparkle(ctx, W / 2 + tw / 2 + 74, top - 34, 10);
-
-  // tournament ribbon
-  const ry = top + 112;
-  ctx.font = `700 44px ${f.display}`;
-  const name = fitText(ctx, tour.name, W - 420, 44, 700, f.display, 26);
-  const nw = Math.max(ctx.measureText(name).width + 120, 520);
-  const rx = W / 2 - nw / 2;
-  // tails
-  ctx.fillStyle = '#7a1f2b';
-  [
-    [rx - 70, rx + 10],
-    [rx + nw + 70, rx + nw - 10],
-  ].forEach(([outer, inner]) => {
-    ctx.beginPath();
-    ctx.moveTo(inner, ry - 26);
-    ctx.lineTo(outer, ry - 26);
-    ctx.lineTo(outer + (outer < inner ? 26 : -26), ry + 8);
-    ctx.lineTo(outer, ry + 42);
-    ctx.lineTo(inner, ry + 42);
-    ctx.closePath();
-    ctx.fill();
-  });
-  const rg = ctx.createLinearGradient(0, ry - 40, 0, ry + 40);
-  rg.addColorStop(0, '#e11d48');
-  rg.addColorStop(1, '#9f1239');
-  ctx.fillStyle = rg;
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
-  ctx.shadowBlur = 20;
-  ctx.shadowOffsetY = 8;
-  rr(ctx, rx, ry - 38, nw, 76, 10);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.strokeStyle = 'rgba(253,230,138,0.7)';
-  ctx.lineWidth = 3;
-  rr(ctx, rx + 8, ry - 30, nw - 16, 60, 7);
-  ctx.stroke();
-  ctx.fillStyle = '#fff7e0';
-  ctx.fillText(name, W / 2, ry + 1);
-
-  // format · date
-  ctx.font = `500 30px ${f.body}`;
-  ctx.fillStyle = '#d6c79a';
-  const sub = [tour.format ? tx(`format.${tour.format}.name`) : '', dateStr].filter(Boolean).join('  ·  ');
-  ctx.fillText(sub, W / 2, ry + 82);
-  return ry + 82;
-}
-
-function drawFooter(ctx, f) {
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `600 28px ${f.display}`;
-  ctx.fillStyle = 'rgba(253,230,138,0.7)';
-  ctx.fillText(`⚽  eFootball Arena  ·  ${location.host}`, W / 2, H - 82);
-}
-
-function initials(name) {
-  return (name || '?')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
-}
-
-// Rounded portrait photo in a metallic frame with a glow; initials on a gradient when there is no photo.
-function drawPortraitRect(ctx, f, img, name, x, y, w, h, place, radius = 42) {
-  const p = PLACES[place];
-  const b = Math.max(10, Math.round(w * 0.014));
-  ctx.save();
-  ctx.shadowColor = place === 1 ? 'rgba(251,191,36,0.7)' : 'rgba(0,0,0,0.7)';
-  ctx.shadowBlur = place === 1 ? 70 : 50;
-  ctx.shadowOffsetY = 20;
-  ctx.fillStyle = metalGradient(ctx, x, y, w, h, p.metal);
-  rr(ctx, x - b, y - b, w + b * 2, h + b * 2, radius + b);
-  ctx.fill();
-  ctx.restore();
-
-  ctx.save();
-  rr(ctx, x, y, w, h, radius);
-  ctx.clip();
-  if (img) {
-    const ir = img.naturalWidth / img.naturalHeight;
-    const fr = w / h;
-    let sw = img.naturalWidth;
-    let sh = img.naturalHeight;
-    if (ir > fr) sw = sh * fr;
-    else sh = sw / fr;
-    ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2.6, sw, sh, x, y, w, h);
-  } else {
-    let hh = 0;
-    for (const c of name || '?') hh = (hh * 31 + c.charCodeAt(0)) >>> 0;
-    const hue = AVATAR_HUES[hh % AVATAR_HUES.length];
-    const g = ctx.createLinearGradient(x, y, x + w, y + h);
-    g.addColorStop(0, `hsl(${hue} 80% 60%)`);
-    g.addColorStop(1, `hsl(${hue} 70% 22%)`);
-    ctx.fillStyle = g;
-    ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = `700 ${Math.round(w * 0.36)}px ${f.display}`;
-    ctx.fillText(initials(name), x + w / 2, y + h * 0.48);
-  }
-  // soft vignette at the bottom so the ribbon reads well
-  const v = ctx.createLinearGradient(0, y + h * 0.55, 0, y + h);
-  v.addColorStop(0, 'rgba(0,0,0,0)');
-  v.addColorStop(1, 'rgba(0,0,0,0.55)');
-  ctx.fillStyle = v;
-  ctx.fillRect(x, y, w, h);
-  // glossy edge
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 2;
-  rr(ctx, x + 1, y + 1, w - 2, h - 2, radius);
-  ctx.stroke();
-  ctx.restore();
-}
-
-// Ribbon banner across the bottom of a photo with the finishing position
-function drawPlaceRibbon(ctx, f, tx, cx, cy, w, place, lang) {
-  const p = PLACES[place];
-  const h = Math.round(w * 0.14);
-  const x = cx - w / 2;
-  ctx.fillStyle = p.deep;
-  [
-    [x - h * 0.7, x + 6],
-    [x + w + h * 0.7, x + w - 6],
-  ].forEach(([outer, inner]) => {
-    ctx.beginPath();
-    ctx.moveTo(inner, cy - h * 0.32);
-    ctx.lineTo(outer, cy - h * 0.32);
-    ctx.lineTo(outer + (outer < inner ? h * 0.32 : -h * 0.32), cy + h * 0.1);
-    ctx.lineTo(outer, cy + h * 0.52);
-    ctx.lineTo(inner, cy + h * 0.52);
-    ctx.closePath();
-    ctx.fill();
-  });
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetY = 10;
-  ctx.fillStyle = metalGradient(ctx, x, cy - h / 2, w, h, p.metal);
-  rr(ctx, x, cy - h / 2, w, h, 12);
-  ctx.fill();
-  ctx.restore();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const label = tx(p.key);
-  const text = lang === 'bn' ? label : label.toUpperCase().split('').join(' ');
-  ctx.fillStyle = p.deep;
-  ctx.fillText(fitText(ctx, `${p.medal}  ${text}  ${p.medal}`, w - 50, Math.round(h * 0.5), 800, f.display, 18), cx, cy + 3);
-}
-
-function dateText(tour, locale) {
-  return tour.updatedAt ? new Date(tour.updatedAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-}
-
-function newCanvas() {
+function newCanvas(w = W, h = H) {
   const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
+  c.width = w;
+  c.height = h;
   return c;
 }
 
-// ---------- player card ----------
-function playerMatches(tour, id) {
-  const order = (m) => (m.stage === 'ko' ? 1000 : 0) + m.round * 10 + (m.leg || 0);
-  return tour.matches.filter((m) => isPlayed(m) && (m.home === id || m.away === id)).sort((a, b) => order(a) - order(b));
+// ---------- scenery ----------
+function drawBackground(ctx) {
+  ctx.fillStyle = NAVY_CSS;
+  ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W / 2, H * 0.45, 0, W / 2, H * 0.45, W);
+  g.addColorStop(0, 'rgba(40,42,110,0.55)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
 }
 
-function perspective(m, id) {
-  const home = m.home === id;
-  const gf = Number(home ? m.hs : m.as);
-  const ga = Number(home ? m.as : m.hs);
-  const hasPens = m.ph !== null && m.ph !== '' && m.ph !== undefined && gf === ga;
-  const pf = hasPens ? Number(home ? m.ph : m.pa) : null;
-  const pa = hasPens ? Number(home ? m.pa : m.ph) : null;
-  let res = gf > ga ? 'W' : gf < ga ? 'L' : 'D';
-  if (hasPens) res = pf > pa ? 'W' : 'L';
-  return { opp: home ? m.away : m.home, gf, ga, pf, pa, res };
-}
+// Cream paint splash: a rough-edged block, brush drips, a dark diagonal stroke and splatter dots
+function drawSplash(ctx, rand, x, y, w, h, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  const pts = [];
+  const step = 26;
+  const jag = () => (rand() - 0.5) * 22;
+  for (let px = x; px <= x + w; px += step) pts.push([px, y + jag()]);
+  for (let py = y; py <= y + h; py += step) pts.push([x + w + jag() + (rand() < 0.08 ? 40 * rand() : 0), py]);
+  for (let px = x + w; px >= x; px -= step) pts.push([px, y + h + jag() + (rand() < 0.1 ? 50 * rand() : 0)]);
+  for (let py = y + h; py >= y; py -= step) pts.push([x + jag() - (rand() < 0.1 ? 60 * rand() : 0), py]);
+  ctx.beginPath();
+  pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+  ctx.closePath();
+  ctx.fill();
 
-function matchLabel(tx, tour, m) {
-  if (m.stage === 'ko') {
-    const legs = tour.matches.filter((x) => x.tieId === m.tieId).length;
-    return `${roundLabel(tx, m.round, tour.bracket.rounds.length)}${legs > 1 ? ` ${m.leg}` : ''}`;
+  // brush sweeps spilling out on the left and right edges
+  for (let i = 0; i < 5; i++) {
+    const side = i % 2 ? x + w : x;
+    const sy = y + h * (0.35 + rand() * 0.55);
+    ctx.beginPath();
+    ctx.ellipse(side + (side === x ? -30 : 30) * rand(), sy, 50 + rand() * 80, 10 + rand() * 18, (rand() - 0.5) * 0.9, 0, Math.PI * 2);
+    ctx.fill();
   }
-  if (tour.groups.length > 1) return `${tx('group', { id: m.group })} · ${tx('mdShort', { n: m.round })}`;
-  return tx(tour.format === 'swiss_knockout' ? 'roundN' : 'matchday', { n: m.round });
+  // cream splatter outside the block
+  for (let i = 0; i < 60; i++) {
+    const a = rand() * Math.PI * 2;
+    const d = 0.55 + rand() * 0.25;
+    const sx = x + w / 2 + Math.cos(a) * w * d;
+    const sy = y + h / 2 + Math.sin(a) * h * d;
+    if (sy > y + h + 30) continue; // keep the area under the splash clear for names
+    ctx.beginPath();
+    ctx.arc(sx, sy, 3 + rand() * 12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // dark splatter inside, mostly on the left like flicked paint
+  ctx.fillStyle = NAVY_CSS;
+  for (let i = 0; i < 70; i++) {
+    const sx = x + w * (0.02 + rand() * 0.38);
+    const sy = y + h * (0.15 + rand() * 0.6);
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, 4 + rand() * 22, 4 + rand() * 16, rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // a bold dark brush stroke on the right
+  ctx.translate(x + w * 0.8, y + h * 0.5);
+  ctx.rotate(0.32);
+  ctx.beginPath();
+  ctx.moveTo(-34, -h * 0.55);
+  ctx.quadraticCurveTo(46, -h * 0.58, 52, -h * 0.4);
+  ctx.lineTo(70, h * 0.62);
+  ctx.quadraticCurveTo(10, h * 0.7, -40, h * 0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
-export async function playerCard({ tour, playerId, place, photo, tx, lang, locale }) {
+// Navy/cream duotone of the photo, faded at the top (into the headline) and bottom (into the
+// background). Without a photo, a soft head-and-shoulders silhouette stands in.
+function duotonePhoto(img, size, light, { fadeTop = 0.32, fadeBottom = 0.22, fadeSides = 0 } = {}) {
+  const c = newCanvas(size, size);
+  const ctx = c.getContext('2d');
+  if (img) {
+    const s = Math.min(img.naturalWidth, img.naturalHeight);
+    ctx.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) * 0.3, s, s, 0, 0, size, size);
+    const data = ctx.getImageData(0, 0, size, size);
+    const d = data.data;
+    for (let i = 0; i < d.length; i += 4) {
+      let l = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+      l = Math.min(1, Math.max(0, (l - 0.1) * 1.32)); // more contrast so the player stands out
+      d[i] = NAVY[0] + (light[0] - NAVY[0]) * l;
+      d[i + 1] = NAVY[1] + (light[1] - NAVY[1]) * l;
+      d[i + 2] = NAVY[2] + (light[2] - NAVY[2]) * l;
+    }
+    ctx.putImageData(data, 0, 0);
+  } else {
+    const col = `rgb(${light.map((v) => Math.round(v * 0.55 + NAVY[0] * 0.45)).join(',')})`;
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.ellipse(size / 2, size * 0.38, size * 0.17, size * 0.21, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(size / 2, size * 1.02, size * 0.42, size * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // fade edges with alpha masks: a soft oval around the head and shoulders (hides the photo's own
+  // background so the splash shows around the player), then the top/bottom/side fades
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.save();
+  ctx.translate(size / 2, size * 0.5);
+  ctx.scale(0.96, 1.2);
+  const oval = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.5);
+  oval.addColorStop(0, 'rgba(0,0,0,1)');
+  oval.addColorStop(0.7, 'rgba(0,0,0,1)');
+  oval.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = oval;
+  ctx.fillRect(-size, -size, size * 2, size * 2);
+  ctx.restore();
+  const v = ctx.createLinearGradient(0, 0, 0, size);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(fadeTop, 'rgba(0,0,0,1)');
+  v.addColorStop(1 - fadeBottom, 'rgba(0,0,0,1)');
+  v.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, size, size);
+  if (fadeSides) {
+    const hgr = ctx.createLinearGradient(0, 0, size, 0);
+    hgr.addColorStop(0, 'rgba(0,0,0,0)');
+    hgr.addColorStop(fadeSides, 'rgba(0,0,0,1)');
+    hgr.addColorStop(1 - fadeSides, 'rgba(0,0,0,1)');
+    hgr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = hgr;
+    ctx.fillRect(0, 0, size, size);
+  }
+  return c;
+}
+
+function drawTagline(ctx, f, tour, lang) {
+  const year = new Date(tour.updatedAt || Date.now()).getFullYear();
+  const text = `${tour.name} ${String(tour.name).includes(String(year)) ? '' : year}`.trim();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  spaced(ctx, lang === 'bn' ? 2 : 9);
+  ctx.fillText(fitText(ctx, lang === 'bn' ? text : text.toUpperCase(), W - 240, 50, 500, f.body, 24), W / 2, 150);
+  spaced(ctx, 0);
+}
+
+function drawHeadline(ctx, f, text, y, maxSize = 360) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(fitText(ctx, text, W - 150, maxSize, 800, f.heavy, 120), W / 2, y);
+}
+
+function drawFooter(ctx, f, lang) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.font = `500 34px ${f.body}`;
+  spaced(ctx, 4);
+  ctx.fillText(`${location.host}  |  eFootball Arena`, W / 2, H - 78);
+  spaced(ctx, 0);
+}
+
+function playerStats(tour, id) {
+  const st = { p: 0, w: 0, g: 0 };
+  tour.matches.forEach((m) => {
+    if (!isPlayed(m) || (m.home !== id && m.away !== id)) return;
+    const home = m.home === id;
+    const gf = Number(home ? m.hs : m.as);
+    const ga = Number(home ? m.as : m.hs);
+    st.p++;
+    st.g += gf;
+    if (gf > ga) st.w++;
+    else if (gf === ga && m.ph !== null && m.ph !== '' && m.ph !== undefined) {
+      const pf = Number(home ? m.ph : m.pa);
+      const pa = Number(home ? m.pa : m.ph);
+      if (pf > pa) st.w++;
+    }
+  });
+  return st;
+}
+
+// ---------- single poster ----------
+export async function playerCard({ tour, playerId, place, photo, tx, lang }) {
   await ensureFonts();
   const f = fontsFor(lang);
   const img = await loadImage(photo);
   const canvas = newCanvas();
   const ctx = canvas.getContext('2d');
-  const rand = rng(`${tour.id}-${playerId}`);
+  const rand = rng(`${tour.id}-${playerId}-poster`);
   const p = PLACES[place];
   const name = playerName(tour, playerId);
   const club = playerTeam(tour, playerId);
-  const accent = place === 1 ? 'rgba(251,191,36,0.30)' : place === 2 ? 'rgba(203,213,225,0.22)' : 'rgba(234,140,70,0.26)';
 
-  // photo box
-  const pw = 860;
-  const ph = 730;
-  const px = (W - pw) / 2;
-  const py = 360;
+  drawBackground(ctx);
+  drawSplash(ctx, rand, 150, 560, W - 300, 1020, p.css);
+  drawTagline(ctx, f, tour, lang);
+  const head = tx(p.headline);
+  // Bangla letters are much taller, so the Bangla headline is smaller and sits lower
+  drawHeadline(ctx, f, lang === 'bn' ? head : head.toUpperCase(), lang === 'bn' ? 400 : 345, lang === 'bn' ? 230 : 360);
 
-  drawStage(ctx, rand, accent);
-  drawConfetti(ctx, rand, 150, [[px - 40, py - 40, pw + 80, ph + 80]], py + ph);
-  const headBottom = drawHeadline(ctx, f, tx, tour, lang, dateText(tour, locale));
+  // the photo overlaps the lower half of the headline and fades into it
+  const size = 1240;
+  const photo2 = duotonePhoto(img, size, p.light, { fadeTop: 0.22, fadeBottom: 0.24 });
+  ctx.drawImage(photo2, (W - size) / 2, 300);
 
-  drawPortraitRect(ctx, f, img, name, px, Math.max(py, headBottom + 50), pw, ph, place);
-  const photoTop = Math.max(py, headBottom + 50);
-  // trophy / medal badge on the corner
-  ctx.save();
-  ctx.translate(px + pw - 40, photoTop + 30);
-  ctx.rotate(0.18);
-  ctx.font = '150px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0,0,0,0.55)';
-  ctx.shadowBlur = 30;
-  ctx.fillText(p.medal, 0, 0);
-  ctx.restore();
-  sparkle(ctx, px + 30, photoTop + 40, 26);
-  sparkle(ctx, px + pw - 120, photoTop + ph - 160, 18);
-
-  const ribbonY = photoTop + ph - 6;
-  drawPlaceRibbon(ctx, f, tx, W / 2, ribbonY, 760, place, lang);
-
-  // name + club
+  // name, club and a short stats line
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.save();
-  ctx.fillStyle = place === 1 ? metalGradient(ctx, 300, ribbonY + 80, 840, 120, ['#fff6cc', '#fbbf24', '#fde68a']) : '#ffffff';
-  ctx.shadowColor = place === 1 ? 'rgba(251,191,36,0.6)' : 'rgba(0,0,0,0.6)';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 30;
-  const nameY = ribbonY + 118;
-  ctx.fillText(fitText(ctx, name, W - 240, 100, 700, f.display, 48), W / 2, nameY);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(fitText(ctx, name, W - 220, 132, 800, f.heavy, 56), W / 2, 1600);
   ctx.restore();
-  let y = nameY + 58;
+  let y = 1690;
   if (club) {
-    ctx.font = `500 32px ${f.body}`;
-    ctx.fillStyle = '#d6c79a';
-    ctx.fillText(fitText(ctx, club, W - 300, 32, 500, f.body), W / 2, y);
-    y += 50;
-  } else {
-    y += 10;
+    ctx.fillStyle = p.css;
+    spaced(ctx, lang === 'bn' ? 0 : 6);
+    ctx.fillText(fitText(ctx, lang === 'bn' ? club : club.toUpperCase(), W - 300, 38, 600, f.body, 20), W / 2, y);
+    spaced(ctx, 0);
+    y += 64;
   }
+  const st = playerStats(tour, playerId);
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = `500 32px ${f.body}`;
+  ctx.fillText(tx('card.statsLine', { p: st.p, w: st.w, g: st.g }), W / 2, y);
 
-  // compact stats line
-  const ms = playerMatches(tour, playerId);
-  const st = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-  ms.forEach((m) => {
-    const r = perspective(m, playerId);
-    st.p++;
-    st.gf += r.gf;
-    st.ga += r.ga;
-    if (r.gf > r.ga) st.w++;
-    else if (r.gf < r.ga) st.l++;
-    else st.d++;
-  });
-  const stats = [
-    [st.p, 'st.p'],
-    [st.w, 'st.w'],
-    [st.d, 'st.d'],
-    [st.l, 'st.l'],
-    [st.gf, 'card.gf'],
-    [st.ga, 'card.ga'],
-  ];
-  const chipW = 176;
-  const gap = 14;
-  const totalW = stats.length * chipW + (stats.length - 1) * gap;
-  stats.forEach(([v, k], i) => {
-    const cx = (W - totalW) / 2 + i * (chipW + gap);
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    rr(ctx, cx, y, chipW, 76, 18);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(253,230,138,0.22)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `700 40px ${f.display}`;
-    ctx.fillText(String(v), cx + chipW / 2, y + 28);
-    ctx.fillStyle = '#d6c79a';
-    ctx.font = `600 20px ${f.body}`;
-    ctx.fillText(fitText(ctx, tx(k).toUpperCase(), chipW - 16, 19, 600, f.body, 14), cx + chipW / 2, y + 58);
-  });
-  y += 98;
-
-  // match history: two compact columns
-  const bottom = H - 120;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = p.text;
-  ctx.font = `700 28px ${f.display}`;
-  const title = tx(place === 1 ? 'card.road' : 'card.history');
-  ctx.fillText(`—  ${lang === 'bn' ? title : title.toUpperCase()}  —`, W / 2, y + 6);
-  y += 36;
-  const rowH = 52;
-  const perCol = Math.max(1, Math.floor((bottom - y) / rowH));
-  const cols = ms.length > perCol ? 2 : 1;
-  const maxRows = perCol * cols;
-  let rows = ms;
-  if (ms.length > maxRows) {
-    const limit = maxRows - 1;
-    const ko = ms.filter((m) => m.stage === 'ko').slice(-limit);
-    const groupRoom = limit - ko.length;
-    const group = groupRoom > 0 ? ms.filter((m) => m.stage !== 'ko').slice(-groupRoom) : [];
-    rows = [...group, ...ko];
-  }
-  const hidden = ms.length - rows.length;
-  const colW = cols === 2 ? 600 : 860;
-  const colX = cols === 2 ? [W / 2 - colW - 14, W / 2 + 14] : [(W - colW) / 2];
-  rows.forEach((m, i) => {
-    const r = perspective(m, playerId);
-    const c = cols === 2 ? Math.floor(i / perCol) : 0;
-    const ry = y + (i % perCol) * rowH;
-    const x = colX[c];
-    ctx.fillStyle = 'rgba(10,8,30,0.55)';
-    rr(ctx, x, ry, colW, rowH - 8, 14);
-    ctx.fill();
-    const mid = ry + (rowH - 8) / 2;
-    ctx.textAlign = 'left';
-    ctx.font = `500 21px ${f.body}`;
-    ctx.fillStyle = '#d6c79a';
-    const labelW = cols === 2 ? 180 : 240;
-    ctx.fillText(fitText(ctx, matchLabel(tx, tour, m), labelW, 21, 500, f.body, 14), x + 18, mid);
-    ctx.font = `600 25px ${f.body}`;
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillText(fitText(ctx, playerName(tour, r.opp), colW - labelW - 210, 25, 600, f.body, 16), x + 26 + labelW, mid);
-    // score + result
-    const chip = { W: '#16a34a', D: '#64748b', L: '#dc2626' }[r.res];
-    ctx.fillStyle = chip;
-    rr(ctx, x + colW - 58, mid - 17, 42, 34, 9);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.font = `700 19px ${f.display}`;
-    ctx.fillText(tx(`form.${r.res}`), x + colW - 37, mid + 1);
-    ctx.textAlign = 'right';
-    ctx.font = `700 28px ${f.display}`;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${r.gf}-${r.ga}${r.pf !== null ? ` (${r.pf}-${r.pa})` : ''}`, x + colW - 72, mid + 1);
-  });
-  if (hidden > 0) {
-    ctx.textAlign = 'center';
-    ctx.font = `500 22px ${f.body}`;
-    ctx.fillStyle = '#a8a29e';
-    ctx.fillText(tx('card.more', { n: hidden }), W / 2, y + perCol * rowH + 8);
-  }
-
-  // a few more pieces in the side margins only, so names and results stay clean
-  drawConfetti(ctx, rand, 60, [[150, photoTop - 60, W - 300, H]], H - 60);
-  drawFrame(ctx);
-  drawFooter(ctx, f);
+  drawFooter(ctx, f, lang);
   return canvas;
 }
 
-// ---------- podium card ----------
-export async function podiumCard({ tour, pod, photos, tx, lang, locale }) {
+// ---------- podium poster ----------
+export async function podiumCard({ tour, pod, photos, tx, lang }) {
   await ensureFonts();
   const f = fontsFor(lang);
   const canvas = newCanvas();
   const ctx = canvas.getContext('2d');
-  const rand = rng(`${tour.id}-podium`);
+  const rand = rng(`${tour.id}-podium-poster`);
+
+  drawBackground(ctx);
+  drawSplash(ctx, rand, 110, 560, W - 220, 980, PLACES[1].css);
+  drawTagline(ctx, f, tour, lang);
+  const head = tx('card.winners');
+  // Bangla letters are much taller, so the Bangla headline is smaller and sits lower
+  drawHeadline(ctx, f, lang === 'bn' ? head : head.toUpperCase(), lang === 'bn' ? 400 : 345, lang === 'bn' ? 230 : 360);
 
   const slots = [
-    { place: 2, id: pod.runnerUpId, cx: 300, w: 360, h: 430, blockTop: 1250 },
-    { place: 1, id: pod.championId, cx: W / 2, w: 450, h: 520, blockTop: 1150 },
-    { place: 3, id: pod.thirdId, cx: W - 300, w: 340, h: 405, blockTop: 1310 },
+    { place: 2, id: pod.runnerUpId, cx: 330, top: 620, size: 700 },
+    { place: 3, id: pod.thirdId, cx: W - 330, top: 650, size: 680 },
+    { place: 1, id: pod.championId, cx: W / 2, top: 400, size: 960 },
   ].filter((s) => s.id);
-  slots.forEach((s) => {
-    s.x = s.cx - s.w / 2;
-    s.y = s.blockTop - 215 - s.h;
-  });
   const imgs = await Promise.all(slots.map((s) => loadImage(photos[s.id])));
 
-  drawStage(ctx, rand, 'rgba(251,191,36,0.28)');
-  drawConfetti(
-    ctx,
-    rand,
-    170,
-    slots.map((s) => [s.x - 30, s.y - 30, s.w + 60, s.h + 200]),
-    1250
-  );
-  drawHeadline(ctx, f, tx, tour, lang, dateText(tour, locale));
-
-  // 3D podium blocks
-  const baseY = 1600;
-  const bw = 400;
-  slots.forEach((s) => {
-    const p = PLACES[s.place];
-    const x = s.cx - bw / 2;
-    const depth = 50;
-    ctx.beginPath();
-    ctx.moveTo(x, s.blockTop);
-    ctx.lineTo(x + bw, s.blockTop);
-    ctx.lineTo(x + bw - 34, s.blockTop - depth);
-    ctx.lineTo(x + 34, s.blockTop - depth);
-    ctx.closePath();
-    ctx.fillStyle = p.block[0];
-    ctx.fill();
-    const fg = ctx.createLinearGradient(0, s.blockTop, 0, baseY);
-    fg.addColorStop(0, p.block[1]);
-    fg.addColorStop(1, p.block[2]);
-    ctx.fillStyle = fg;
-    ctx.fillRect(x, s.blockTop, bw, baseY - s.blockTop);
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fillRect(x, s.blockTop, bw, 6);
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    ctx.fillRect(x + bw - 30, s.blockTop, 30, baseY - s.blockTop);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = `800 ${s.place === 1 ? 180 : 140}px ${f.display}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 20;
-    ctx.fillText(String(s.place), s.cx, s.blockTop + (baseY - s.blockTop) / 2 + 8);
-    ctx.shadowBlur = 0;
-  });
-  const fl = ctx.createLinearGradient(0, baseY, 0, baseY + 70);
-  fl.addColorStop(0, 'rgba(0,0,0,0.6)');
-  fl.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = fl;
-  ctx.fillRect(80, baseY, W - 160, 70);
-
-  // portraits standing on the blocks, with name plates
+  // side players first, champion in front
   slots.forEach((s, i) => {
-    const name = playerName(tour, s.id);
-    drawPortraitRect(ctx, f, imgs[i], name, s.x, s.y, s.w, s.h, s.place, 34);
-    drawPlaceRibbon(ctx, f, tx, s.cx, s.y + s.h - 4, s.w + 30, s.place, lang);
-    ctx.save();
+    const pic = duotonePhoto(imgs[i], s.size, PLACES[s.place].light, {
+      fadeTop: s.place === 1 ? 0.3 : 0.22,
+      fadeBottom: 0.24,
+      fadeSides: s.place === 1 ? 0.12 : 0.2,
+    });
+    ctx.drawImage(pic, s.cx - s.size / 2, s.top);
+  });
+
+  // name plates: place tag + name under each photo
+  const labelY = { 1: 1440, 2: 1390, 3: 1400 };
+  [...slots].sort((a, b) => a.place - b.place).forEach((s) => {
+    const p = PLACES[s.place];
+    const y = labelY[s.place];
+    const x = s.place === 1 ? W / 2 : s.cx;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = s.place === 1 ? metalGradient(ctx, s.x, s.y + s.h + 40, s.w, 80, ['#fff6cc', '#fbbf24', '#fde68a']) : '#ffffff';
-    ctx.shadowColor = 'rgba(0,0,0,0.7)';
-    ctx.shadowBlur = 18;
-    ctx.fillText(fitText(ctx, name, s.w + 40, s.place === 1 ? 62 : 46, 700, f.display, 24), s.cx, s.y + s.h + 96);
+    // place tag
+    ctx.font = `800 ${s.place === 1 ? 46 : 38}px ${f.heavy}`;
+    const tag = tx(p.short);
+    const tw = ctx.measureText(tag).width + 44;
+    const th = s.place === 1 ? 64 : 54;
+    ctx.fillStyle = NAVY_CSS;
+    ctx.beginPath();
+    ctx.moveTo(x - tw / 2 + 14, y - th / 2);
+    ctx.lineTo(x + tw / 2, y - th / 2);
+    ctx.lineTo(x + tw / 2 - 14, y + th / 2);
+    ctx.lineTo(x - tw / 2, y + th / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = p.css;
+    ctx.fillText(tag, x, y + 3);
+    // name
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.65)';
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = '#ffffff';
+    const nameMax = s.place === 1 ? 620 : 420;
+    ctx.fillText(fitText(ctx, playerName(tour, s.id), nameMax, s.place === 1 ? 96 : 64, 800, f.heavy, 30), x, y + (s.place === 1 ? 92 : 76));
     ctx.restore();
   });
-  // a crown of sparkles above the champion
-  const champ = slots.find((s) => s.place === 1);
-  if (champ) {
-    sparkle(ctx, champ.cx, champ.y - 60, 30);
-    sparkle(ctx, champ.cx - 120, champ.y - 30, 18);
-    sparkle(ctx, champ.cx + 120, champ.y - 30, 18);
-  }
 
-  drawConfetti(ctx, rand, 30, slots.map((s) => [s.x - 40, s.y - 80, s.w + 80, H]), H);
-  drawFrame(ctx);
-  drawFooter(ctx, f);
+  // tournament details line
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = `500 32px ${f.body}`;
+  const sub = [tour.format ? tx(`format.${tour.format}.name`) : '', tx('card.playersCount', { n: tour.players.length })].filter(Boolean).join('  ·  ');
+  ctx.fillText(sub, W / 2, 1700);
+
+  drawFooter(ctx, f, lang);
   return canvas;
 }
 

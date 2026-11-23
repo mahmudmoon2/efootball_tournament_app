@@ -1,8 +1,61 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { uid } from '../lib/engine.js';
+import { api } from '../lib/api.js';
+import { fileToAvatar } from '../lib/image.js';
 import Icon from './Icon.jsx';
-import { Avatar, useUI } from './ui.jsx';
+import { Avatar, PhotoCtx, useUI } from './ui.jsx';
 import { usePrefs } from '../lib/prefs.jsx';
+
+// Admins tap a player's picture to add, change or remove their photo (any player, any time)
+function PhotoPicker({ t, player }) {
+  const { toast, confirm } = useUI();
+  const { t: tx } = usePrefs();
+  const photos = useContext(PhotoCtx);
+  const [busy, setBusy] = useState(false);
+  const has = !!photos[player.id];
+
+  const pick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      await api.savePhoto(t.id, player.id, await fileToAvatar(file));
+      toast(tx('wc.saved', { name: player.name }), 'ok');
+    } catch (err) {
+      toast(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (e) => {
+    e.preventDefault();
+    if (!(await confirm({ title: tx('wc.removeTitle', { name: player.name }), confirmText: tx('pl.remove'), danger: true }))) return;
+    try {
+      await api.removePhoto(t.id, player.id);
+    } catch (err) {
+      toast(err);
+    }
+  };
+
+  return (
+    <span className="photo-pick">
+      <label title={has ? tx('wc.change') : tx('wc.add')} className={busy ? 'busy' : ''}>
+        <Avatar id={player.id} name={player.name} size={40} />
+        <span className="cam">
+          <Icon name="camera" size={12} stroke={2.4} />
+        </span>
+        <input type="file" accept="image/*" onChange={pick} disabled={busy} aria-label={has ? tx('wc.change') : tx('wc.add')} />
+      </label>
+      {has && (
+        <button className="photo-x" onClick={remove} aria-label={tx('wc.removeTitle', { name: player.name })}>
+          <Icon name="x" size={10} stroke={3} />
+        </button>
+      )}
+    </span>
+  );
+}
 
 export default function Players({ t, isAdmin, update }) {
   const { confirm, toast } = useUI();
@@ -131,7 +184,7 @@ export default function Players({ t, isAdmin, update }) {
               ) : (
                 <>
                   <span className="p-num">{i + 1}</span>
-                  <Avatar id={p.id} name={p.name} />
+                  {isAdmin ? <PhotoPicker t={t} player={p} /> : <Avatar id={p.id} name={p.name} />}
                   <span className="p-name">
                     <b>
                       {p.name} {t.championId === p.id && '🏆'}

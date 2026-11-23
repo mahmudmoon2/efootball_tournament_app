@@ -914,3 +914,17 @@ textarea { resize: vertical; }
 .activity-text { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
 .activity-item.champion .activity-text { font-weight: 700; color: var(--gold); }
 .activity-body small { font-size: 12px; }
+
+/* ===== player photo picker (admins, Players tab) ===== */
+.photo-pick { position: relative; flex-shrink: 0; }
+.photo-pick label { position: relative; display: block; cursor: pointer; border-radius: 50%; }
+.photo-pick label.busy { opacity: 0.5; pointer-events: none; }
+.photo-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.photo-pick .cam {
+  position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  color: #03140b; background: linear-gradient(180deg, #5ff7b0, var(--green-2)); box-shadow: 0 2px 0 var(--green-edge), 0 0 0 2px var(--bg-2); pointer-events: none;
+}
+.photo-x {
+  position: absolute; left: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; padding: 0;
+  border: 0; cursor: pointer; color: #fff; background: var(--red); box-shadow: 0 0 0 2px var(--bg-2);
+}
